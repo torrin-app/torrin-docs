@@ -9,22 +9,44 @@
     "dark": "#b8895a"
   },
   "navigation": {
-    "groups": [
+    "tabs": [
       {
-        "group": "Getting Started",
-        "pages": ["introduction", "requirements", "quickstart"]
-      },
-      {
-        "group": "Deploy",
-        "pages": ["configuration", "storage", "vpn", "exposing"]
-      },
-      {
-        "group": "Using Torrin",
-        "pages": ["stremio", "webdav", "byos"]
-      },
-      {
-        "group": "Operations",
-        "pages": ["accounts", "updating", "troubleshooting"]
+        "tab": "Self-hosting",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "self-hosting/introduction",
+              "self-hosting/requirements",
+              "self-hosting/quickstart"
+            ]
+          },
+          {
+            "group": "Deploy",
+            "pages": [
+              "self-hosting/configuration",
+              "self-hosting/storage",
+              "self-hosting/vpn",
+              "self-hosting/exposing"
+            ]
+          },
+          {
+            "group": "Using Torrin",
+            "pages": [
+              "self-hosting/stremio",
+              "self-hosting/webdav",
+              "self-hosting/byos"
+            ]
+          },
+          {
+            "group": "Operations",
+            "pages": [
+              "self-hosting/accounts",
+              "self-hosting/updating",
+              "self-hosting/troubleshooting"
+            ]
+          }
+        ]
       }
     ]
   },

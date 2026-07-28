@@ -35,16 +35,16 @@ At minimum, set:
 </ParamField>
 
 <ParamField path="VPN_PRIVATE_KEY / VPN_ADDRESSES / VPN_COUNTRIES">
-  Your WireGuard details, if you use the VPN overlay (recommended). See [VPN](/vpn).
+  Your WireGuard details, if you use the VPN overlay (recommended). See [VPN](/self-hosting/vpn).
 </ParamField>
 
-See [Configuration](/configuration) for the full list.
+See [Configuration](/self-hosting/configuration) for the full list.
 
 ## 3. Storage
 
 Cached content lives on the local filesystem. The compose mounts the host path
 `/mnt/cache/store` into the services — mount your cache disk there, or change
-that volume path in `docker-compose.yml`. See [Storage](/storage).
+that volume path in `docker-compose.yml`. See [Storage](/self-hosting/storage).
 
 ## 4. Start
 
@@ -73,14 +73,14 @@ docker compose -f docker-compose.yml -f docker-compose.vpn.yml \
   -f docker-compose.public.yml up -d
 ```
 
-See [Exposing publicly](/exposing) for the DNS/domain and `PUBLIC_URL` details.
+See [Exposing publicly](/self-hosting/exposing) for the DNS/domain and `PUBLIC_URL` details.
 
 ## 6. First use
 
 1. Open the web UI at your `PUBLIC_URL` and create an account.
 2. Add your debrid provider key (RealDebrid / AllDebrid / TorBox) in settings.
-3. Paste a magnet, NZB, or link — or connect the [Stremio addon](/stremio).
+3. Paste a magnet, NZB, or link — or connect the [Stremio addon](/self-hosting/stremio).
 
-<Card title="Connect Stremio" icon="play" href="/stremio">
+<Card title="Connect Stremio" icon="play" href="/self-hosting/stremio">
   Point the addon at your instance and stream from Stremio.
 </Card>
