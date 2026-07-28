@@ -8,6 +8,29 @@ from outside your network — and to use the **Stremio addon**, which requires
 HTTPS — put it behind TLS. The `docker-compose.public.yml` overlay does this for
 you, two ways.
 
+## Access it locally first (no domain)
+
+Before exposing anything, you can reach the dashboard on the machine itself. The
+web UI runs in the `web` container on port `5000`, but that port isn't published
+to your host by default. Publish it with a `docker-compose.override.yml` next to
+your compose files:
+
+```yaml
+services:
+  web:
+    ports:
+      - "127.0.0.1:5000:5000"
+```
+
+Re-run your `up -d` command, then open **http://localhost:5000** to create your
+account and add your debrid key. Drop the `127.0.0.1:` prefix to reach it from
+other devices on your LAN.
+
+<Note>
+Local access is HTTP only. For remote use and the Stremio addon (which requires
+HTTPS), use one of the options below.
+</Note>
+
 ## Option A: Caddy with a domain (automatic TLS)
 
 Point a domain at your server, then let the bundled Caddy fetch and renew a
