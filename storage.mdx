@@ -1,0 +1,48 @@
+---
+title: "Storage"
+description: "Where cached content lives and how eviction works."
+---
+
+Torrin caches downloaded content on the **local filesystem**. There's no
+external object store to run for a single-box setup.
+
+## The cache directory
+
+The compose mounts the host path `/mnt/cache/store` into the services that read
+and write cached content. To use a specific disk, mount it there:
+
+```bash
+# example: mount a dedicated disk at the cache path
+mount /dev/sdX1 /mnt/cache/store
+```
+
+Or point the volume somewhere else by editing the mount in
+`deploy/docker-compose.yml`:
+
+```yaml
+volumes:
+  - /your/big/disk:/mnt/cache/store
+```
+
+<Note>
+The download **scratch** area (`/mnt/cache/ingest-scratch`) is separate and
+temporary — it holds a job's files only until they're published to the cache.
+</Note>
+
+## Encryption at rest
+
+Set `STORAGE_KEY` (a hex key from `openssl rand -hex 32`) to encrypt stored
+content at rest. It's off by default. Stored debrid credentials can be
+encrypted independently with `CREDS_KEY`.
+
+## Eviction
+
+The cache is capped by `EVICTION_CAP_BYTES` (default 300 GB). A daily sweep
+(at `EVICTION_HOUR`) removes the least-recently-used content once the cache
+grows past the cap, so it never fills the disk. Popular content stays warm;
+rarely-watched content is dropped and simply re-fetched on the next play.
+
+## Bring Your Own Storage
+
+Instead of (or in addition to) the shared cache, users can pipe their content to
+their own cloud provider via rclone. See [BYOS](/byos).

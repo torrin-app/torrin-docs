@@ -1,0 +1,35 @@
+---
+title: "Updating"
+description: "Move your instance to a newer version."
+---
+
+Torrin ships as versioned container images. To update:
+
+```bash
+cd torrin/deploy
+git pull
+docker compose <your -f overlays> pull
+docker compose <your -f overlays> up -d
+```
+
+Use the same overlay flags you started with, e.g.:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.vpn.yml \
+  -f docker-compose.public.yml pull
+docker compose -f docker-compose.yml -f docker-compose.vpn.yml \
+  -f docker-compose.public.yml up -d
+```
+
+<Note>
+`docker compose up -d` alone does **not** re-pull images — always run `pull`
+first, or a service can keep running an old image.
+</Note>
+
+## Notes
+
+- **Database** changes apply automatically on startup (the schema is embedded),
+  so there's no manual migration step.
+- **Config** is your `.env`; new options land in `.env.example` — diff it against
+  your `.env` after pulling to pick up anything new.
+- To pin a specific version instead of the latest, set `TORRIN_TAG` in `.env`.

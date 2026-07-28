@@ -1,0 +1,86 @@
+---
+title: "Quick start"
+description: "Run a Torrin instance with Docker Compose."
+---
+
+## Prerequisites
+
+- **Docker** and **Docker Compose**
+- A **disk** with room for the content cache
+- A **WireGuard VPN** provider for download egress (recommended, so your host IP is never exposed)
+
+## 1. Clone
+
+```bash
+git clone https://github.com/torrin-app/torrin
+cd torrin/deploy
+```
+
+## 2. Configure
+
+Copy the example env and fill in the required values:
+
+```bash
+cp .env.example .env
+```
+
+At minimum, set:
+
+<ParamField path="SIGNING_KEY" required>
+  Secret that signs stream URLs. Generate one with `openssl rand -hex 32`.
+</ParamField>
+
+<ParamField path="PUBLIC_URL" required>
+  Where the stream service is reachable from the outside (your domain or IP), e.g. `https://stream.example.com`.
+</ParamField>
+
+<ParamField path="VPN_PRIVATE_KEY / VPN_ADDRESSES / VPN_COUNTRIES">
+  Your WireGuard details, if you use the VPN overlay (recommended). See [VPN](/vpn).
+</ParamField>
+
+See [Configuration](/configuration) for the full list.
+
+## 3. Storage
+
+Cached content lives on the local filesystem. The compose mounts the host path
+`/mnt/cache/store` into the services — mount your cache disk there, or change
+that volume path in `docker-compose.yml`. See [Storage](/storage).
+
+## 4. Start
+
+Base stack plus the VPN overlay (downloads route through gluetun):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.vpn.yml up -d
+```
+
+<Note>
+Leave off `-f docker-compose.vpn.yml` to run without a VPN — downloads will use
+your host IP directly, which is not recommended.
+</Note>
+
+This brings up PostgreSQL, NATS, qBittorrent, the object store, and the Torrin
+services (`api`, `ingest`, `stream`, `stremio`, ...).
+
+## 5. Expose it (for remote access + Stremio)
+
+The above runs on plain HTTP, fine for a LAN test. To reach it from outside your
+network — and to use the Stremio addon, which requires HTTPS — add the public
+overlay (Caddy with automatic TLS on your domain, or a Cloudflare tunnel):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.vpn.yml \
+  -f docker-compose.public.yml up -d
+```
+
+See [Exposing publicly](/exposing) for the DNS/domain and `PUBLIC_URL` details.
+
+## 6. First use
+
+1. Open the web UI at your `PUBLIC_URL` and create an account.
+2. Add your debrid provider key (RealDebrid / AllDebrid / TorBox) in settings.
+3. Paste a magnet, NZB, or link — or connect the [Stremio addon](/stremio).
+
+<Card title="Connect Stremio" icon="play" href="/stremio">
+  Point the addon at your instance and stream from Stremio.
+</Card>

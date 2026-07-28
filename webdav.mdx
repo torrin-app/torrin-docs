@@ -1,0 +1,42 @@
+---
+title: "WebDAV"
+description: "Mount your Torrin library in VLC, Infuse, Kodi, or a file manager."
+---
+
+The `webdav` service exposes your cached library as a WebDAV share, so you can
+mount it in players like **VLC**, **Infuse**, **Kodi**, or your OS file manager.
+
+## Connect
+
+WebDAV is served on port **9092**:
+
+```
+http://<your-host>:9092
+```
+
+Authenticate with your Torrin account credentials.
+
+<Tabs>
+  <Tab title="Infuse / VLC">
+    Add a network share of type **WebDAV (HTTP)**, host `<your-host>`,
+    port `9092`, and your Torrin login.
+  </Tab>
+  <Tab title="Kodi">
+    Add a video source with a **WebDAV server (HTTP)** path:
+    `http://<your-host>:9092/`.
+  </Tab>
+  <Tab title="macOS / Windows">
+    Connect to server `http://<your-host>:9092` and sign in with your account.
+  </Tab>
+</Tabs>
+
+<Note>
+For remote access, put WebDAV behind HTTPS via a reverse proxy — most players
+require it, and it keeps your credentials off the wire.
+</Note>
+
+## What you'll see
+
+Your library is presented as folders of playable files. Streaming pulls from the
+cache (or your [BYOS](/byos) provider) on demand — nothing is stored on the
+client.

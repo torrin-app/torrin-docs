@@ -1,0 +1,56 @@
+---
+title: "Exposing publicly"
+description: "Put Torrin behind HTTPS so you can use it remotely and with Stremio."
+---
+
+The quickstart runs Torrin on plain HTTP, which is fine on your LAN. To use it
+from outside your network — and to use the **Stremio addon**, which requires
+HTTPS — put it behind TLS. The `docker-compose.public.yml` overlay does this for
+you, two ways.
+
+## Option A: Caddy with a domain (automatic TLS)
+
+Point a domain at your server, then let the bundled Caddy fetch and renew a
+Let's Encrypt certificate automatically.
+
+<Steps>
+  <Step title="DNS">
+    Create an A/AAAA record for your domain (e.g. `stream.example.com`) pointing
+    at the server's public IP. Open ports **80** and **443**.
+  </Step>
+  <Step title="Configure">
+    In `deploy/.env`:
+    ```bash
+    STREAM_DOMAIN=stream.example.com
+    ACME_EMAIL=you@example.com
+    PUBLIC_URL=https://stream.example.com
+    ```
+  </Step>
+  <Step title="Start with the overlay">
+    ```bash
+    docker compose -f docker-compose.yml -f docker-compose.vpn.yml \
+      -f docker-compose.public.yml up -d
+    ```
+  </Step>
+</Steps>
+
+Caddy reverse-proxies the public services (see `deploy/Caddyfile`) and manages
+TLS. Adjust the Caddyfile if you want separate subdomains for the api, addon, or
+WebDAV.
+
+## Option B: Cloudflare Tunnel (no open ports)
+
+If you can't open ports or prefer not to expose your IP, use a Cloudflare
+Tunnel. Create a tunnel in the Cloudflare dashboard, then:
+
+```bash
+CLOUDFLARE_TUNNEL_TOKEN=your-tunnel-token
+```
+
+and bring the stack up with the same `docker-compose.public.yml` overlay. Route
+the tunnel's hostnames to the internal services in the Cloudflare dashboard.
+
+<Warning>
+`PUBLIC_URL` must match the HTTPS address you actually serve on — signed stream
+URLs are minted against it, so a mismatch breaks playback.
+</Warning>

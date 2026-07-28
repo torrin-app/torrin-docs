@@ -1,0 +1,40 @@
+---
+title: "Stremio addon"
+description: "Stream your Torrin instance from Stremio."
+---
+
+Torrin ships a Stremio addon server (the `stremio` service) so you can browse
+and play cached content directly in Stremio.
+
+## Install the addon
+
+The addon is served on port **7000**. Its manifest is at:
+
+```
+http://<your-host>:7000/manifest.json
+```
+
+Add it to Stremio one of two ways:
+
+<Steps>
+  <Step title="Open the configure page">
+    Visit `http://<your-host>:7000/` in a browser and follow the prompt to
+    link it to your Torrin account.
+  </Step>
+  <Step title="Install in Stremio">
+    Paste the manifest URL into Stremio's **Addons → Add addon** field, or use
+    the **Install** button on the configure page.
+  </Step>
+</Steps>
+
+<Note>
+For anything beyond a LAN setup, put the addon behind HTTPS (a reverse proxy /
+the `docker-compose.public.yml` overlay). Stremio requires HTTPS for remote
+addons.
+</Note>
+
+## How it works
+
+When you pick a title in Stremio, the addon asks `api` whether it's cached. If
+so you get an instant signed stream; if not, a download is queued and the stream
+becomes available once it completes.

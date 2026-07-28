@@ -1,0 +1,36 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Torrin",
+  "description": "Self-hostable debrid + streaming service. Add a magnet, NZB, or link, get an instant HTTPS stream.",
+  "colors": {
+    "primary": "#d4a574",
+    "light": "#e0b584",
+    "dark": "#b8895a"
+  },
+  "navigation": {
+    "groups": [
+      {
+        "group": "Getting Started",
+        "pages": ["introduction", "requirements", "quickstart"]
+      },
+      {
+        "group": "Deploy",
+        "pages": ["configuration", "storage", "vpn", "exposing"]
+      },
+      {
+        "group": "Using Torrin",
+        "pages": ["stremio", "webdav", "byos"]
+      },
+      {
+        "group": "Operations",
+        "pages": ["accounts", "updating", "troubleshooting"]
+      }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/torrin-app/torrin"
+    }
+  }
+}

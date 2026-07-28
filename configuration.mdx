@@ -1,0 +1,72 @@
+---
+title: "Configuration"
+description: "Environment variables for a self-hosted instance."
+---
+
+All configuration lives in `deploy/.env` (copied from `deploy/.env.example`).
+Anything you leave blank falls back to the default baked into the compose files.
+
+## Required
+
+| Variable | Description |
+|---|---|
+| `SIGNING_KEY` | Secret that signs stream URLs and internal calls. Generate with `openssl rand -hex 32`. **Change from the default.** |
+| `PUBLIC_URL` | Externally-reachable base for the stream service (your domain or IP). Signed URLs are minted against it. |
+
+`DATABASE_URL` and `NATS_URL` are wired to the bundled PostgreSQL and NATS by
+the compose file, so you don't set them yourself.
+
+## Storage
+
+| Variable | Description |
+|---|---|
+| `STORAGE_KEY` | Optional hex key to encrypt stored **content** at rest (default off). |
+| `CREDS_KEY` | Optional hex key to encrypt stored **debrid credentials** at rest. |
+
+The cache location is a volume mount, not an env var. See [Storage](/storage).
+
+## Cache limits
+
+| Variable | Default | Description |
+|---|---|---|
+| `BUDGET_MAX_BYTES` | `1000000000000` | Cap on in-flight (downloading) bytes. |
+| `EVICTION_CAP_BYTES` | `300000000000` | Soft cap on the cache; oldest content is evicted past it. |
+| `EVICTION_HOUR` | `4` | Hour of day the eviction sweep runs. |
+
+## Debrid (optional)
+
+Users add their own provider keys in the app. These system keys are only used
+for the instant "is it cached" probe and can be left empty.
+
+| Variable | Description |
+|---|---|
+| `RD_API_KEY` | System RealDebrid key for cache checks. |
+| `AD_API_KEY` | System AllDebrid key for cache checks. |
+| `TORRENTCLAW_API_KEY` | Non-jamming live cache-check service. |
+
+## Usenet (optional)
+
+| Variable | Description |
+|---|---|
+| `USENET_HOST` / `USENET_PORT` / `USENET_USER` / `USENET_PASS` | Your Usenet provider. |
+| `USENET_MAXCONNS` | Max connections (default 20). |
+| `USENET_INDEXER_URL` / `USENET_INDEXER_KEY` | A Newznab indexer, as a fallback source. |
+
+## BYOS OAuth (optional)
+
+Only needed if users will connect a cloud provider. See [BYOS](/byos).
+
+| Variable | Description |
+|---|---|
+| `API_PUBLIC_URL` | The api's externally-reachable base (used as the OAuth redirect target). |
+| `GDRIVE_CLIENT_ID` / `GDRIVE_CLIENT_SECRET` | Google Drive OAuth app. |
+| `DROPBOX_CLIENT_ID` / `DROPBOX_CLIENT_SECRET` | Dropbox OAuth app. |
+| `ONEDRIVE_CLIENT_ID` / `ONEDRIVE_CLIENT_SECRET` | OneDrive OAuth app. |
+| `PCLOUD_CLIENT_ID` / `PCLOUD_CLIENT_SECRET` | pCloud OAuth app. |
+
+## Rate limiting (optional)
+
+| Variable | Default | Description |
+|---|---|---|
+| `RATE_LIMIT_RPS` | `30` | Per-key requests/sec; `0` disables. |
+| `RATE_LIMIT_BURST` | `60` | Burst allowance. |

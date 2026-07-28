@@ -1,0 +1,48 @@
+---
+title: "Introduction"
+description: "What Torrin is and how it works."
+---
+
+Torrin is an open-source, self-hostable debrid + streaming service. You add a
+magnet, NZB, or file-host link, and get back an instant HTTPS stream. No local
+torrent client, no seeding, no IP exposure.
+
+## What it does
+
+Torrin downloads torrents, Usenet, and file-host links on the server (behind a
+VPN), caches the result on disk, and serves it back as signed HTTPS stream URLs.
+Cached content is shared across users, so repeat plays are instant.
+
+- **Instant streaming** for cached content; downloads behind a VPN when it isn't.
+- **Multiple sources** — torrents (qBittorrent), debrid providers, Usenet (NZB), file hosters, and scene/HDEncode releases.
+- **Stremio addon**, **WebDAV** mount (VLC / Infuse / Kodi), and a web UI.
+- **RSS auto-download** with criteria filters (resolution, source, codec, HDR, group, ...).
+- **BYOS** — Bring Your Own Storage: pipe downloads to your own cloud via rclone.
+
+## How it works
+
+1. A user submits a magnet / NZB / link, or searches for a title.
+2. `api` checks the cache and content providers. If available, it returns signed stream URLs instantly.
+3. If not, a job is queued and `ingest` downloads it (behind a VPN).
+4. On completion the files are published to the object store.
+5. The user streams via a signed HTTPS URL from `stream`, or mounts the library via `webdav`.
+
+## Architecture
+
+Torrin is a Go monorepo of small services over [NATS](https://nats.io), backed
+by PostgreSQL for metadata and a filesystem-backed object store for content.
+
+| Service | Role |
+|---|---|
+| `api` | REST API — auth, jobs, RSS, storage |
+| `ingest` | Download pipeline — torrent / debrid / Usenet / hoster → publish |
+| `stream` | Signed HTTPS streaming of cached files |
+| `webdav` | WebDAV server for mounting the library |
+| `catalog` | Content catalog / metadata |
+| `scheduler` | Background scheduling + cache eviction |
+| `stremio` | Stremio addon server |
+| `byos` | Bring Your Own Storage (rclone) |
+
+<Card title="Ready to run it?" icon="rocket" href="/quickstart">
+  Get a Torrin instance up with Docker Compose.
+</Card>

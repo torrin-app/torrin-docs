@@ -1,0 +1,47 @@
+---
+title: "Accounts & plans"
+description: "How users sign up and how plan limits work."
+---
+
+## The first account
+
+Registration is open by default — open the web UI at your `PUBLIC_URL` and sign
+up. The first account is a normal user; there's no separate admin bootstrap.
+
+Each account adds its **own debrid key** (RealDebrid / AllDebrid / TorBox) in
+settings — that's what makes cached content stream instantly.
+
+## Plans
+
+Every user is on a **plan** that sets their limits. New accounts land on the
+built-in **Free** plan:
+
+| Limit | Free |
+|---|---|
+| Concurrent downloads | 1 |
+| Max torrent size | 50 GB |
+| WebDAV / Stremio / shared cache | yes |
+
+Plans are defined in code (`shared/plans/plans.go`). For a personal instance the
+Free limits are often too tight, so you have two options:
+
+<Tabs>
+  <Tab title="Bump your account">
+    Assign your user a higher plan directly in the database:
+    ```sql
+    UPDATE users SET plan_id='pro', expires_at='2099-01-01' WHERE email='you@example.com';
+    ```
+    (Run inside the postgres container: `docker compose exec postgres psql -U torrin -d torrin`.)
+  </Tab>
+  <Tab title="Edit the plans">
+    Change the limits on the Free plan (or add your own) in
+    `shared/plans/plans.go` and rebuild the images. Best if you want everyone on
+    your instance to get the same limits.
+  </Tab>
+</Tabs>
+
+<Note>
+Billing (Gumroad / Bitcart / etc.) is only relevant if you're running Torrin as
+a paid service. A private self-host can ignore it entirely and manage plans by
+hand.
+</Note>

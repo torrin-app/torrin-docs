@@ -1,0 +1,46 @@
+---
+title: "Troubleshooting"
+description: "Verify your instance and fix common issues."
+---
+
+## Verify it's running
+
+```bash
+docker compose ps            # all services healthy?
+docker compose logs -f api   # follow a service's logs
+docker compose logs -f ingest
+```
+
+Then open your `PUBLIC_URL`, sign up, add a debrid key, and paste a magnet — it
+should start downloading (or return an instant stream if it's already cached).
+
+## Common issues
+
+<AccordionGroup>
+  <Accordion title="Downloads never start / no VPN connection">
+    Check gluetun: `docker compose logs -f gluetun`. A bad `VPN_PRIVATE_KEY`,
+    `VPN_ADDRESSES`, or provider name is the usual cause. `ingest` and
+    qBittorrent share gluetun's network, so if the VPN is down, downloads stall.
+  </Accordion>
+  <Accordion title="Permission denied writing to the cache">
+    The store path (`/mnt/cache/store`) and scratch dir must be writable by the
+    containers. Make sure the mounted disk exists and isn't read-only.
+  </Accordion>
+  <Accordion title="Streams won't play / 'video not found'">
+    Almost always a `PUBLIC_URL` mismatch — signed URLs are minted against it, so
+    it must be the exact HTTPS address you serve on. See [Exposing publicly](/exposing).
+  </Accordion>
+  <Accordion title="Stremio won't add the addon">
+    Stremio requires HTTPS for remote addons. Put the instance behind TLS first
+    ([Exposing publicly](/exposing)), then add the manifest URL.
+  </Accordion>
+  <Accordion title="Hitting plan limits">
+    New accounts are on the Free plan (1 concurrent, 50 GB). Bump your account or
+    edit the plan limits — see [Accounts & plans](/accounts).
+  </Accordion>
+</AccordionGroup>
+
+## Getting help
+
+- Check [CONTRIBUTING.md](https://github.com/torrin-app/torrin/blob/main/CONTRIBUTING.md)
+- Report security issues via [SECURITY.md](https://github.com/torrin-app/torrin/blob/main/SECURITY.md), not a public issue.

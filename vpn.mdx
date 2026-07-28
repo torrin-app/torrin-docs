@@ -1,0 +1,47 @@
+---
+title: "VPN"
+description: "Route downloads through a VPN so your host IP is never exposed."
+---
+
+Torrin runs its download engine (qBittorrent + `ingest`) inside
+[gluetun](https://github.com/qdm12/gluetun), so all torrent and download traffic
+egresses through your VPN — your server's real IP is never exposed.
+
+This is enabled by the `docker-compose.vpn.yml` overlay:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.vpn.yml up -d
+```
+
+## WireGuard config
+
+Fill these in `deploy/.env` (values come from your VPN provider's WireGuard
+config):
+
+| Variable | Description |
+|---|---|
+| `VPN_PROVIDER` | gluetun provider name (e.g. `airvpn`, `mullvad`, `custom`). |
+| `VPN_TYPE` | `wireguard` (recommended) or `openvpn`. |
+| `VPN_PRIVATE_KEY` | Your WireGuard private key. |
+| `VPN_PRESHARED_KEY` | Preshared key, if your provider uses one. |
+| `VPN_ADDRESSES` | The address block from your WireGuard config, e.g. `10.x.x.x/32`. |
+| `VPN_COUNTRIES` | Preferred exit country/countries (default `Germany`). |
+
+<Note>
+gluetun supports many providers — see its
+[wiki](https://github.com/qdm12/gluetun-wiki) for the exact `VPN_PROVIDER`
+value and any provider-specific settings.
+</Note>
+
+## Running without a VPN
+
+Leave off the overlay to run without one:
+
+```bash
+docker compose up -d
+```
+
+<Warning>
+Without the VPN overlay, downloads use your host's IP directly. Only do this if
+you understand the exposure — a VPN is strongly recommended.
+</Warning>

@@ -1,0 +1,32 @@
+---
+title: "Requirements"
+description: "What you need before installing Torrin."
+---
+
+## Host
+
+- A **Linux** server with **Docker** and **Docker Compose**.
+- **~2-4 GB RAM** for the base stack (more if you run heavy usenet/torrent loads).
+- **Disk** sized for your cache: at least `EVICTION_CAP_BYTES` (default 300 GB)
+  plus headroom for the download scratch area. A separate data disk mounted at
+  `/mnt/cache/store` is recommended.
+
+## Accounts & services
+
+- A **debrid account** (RealDebrid, AllDebrid, or TorBox) — this is what makes
+  streaming instant. Users add their own key in the app.
+- A **WireGuard VPN** provider for download egress (recommended). See [VPN](/vpn).
+- A **domain** if you want to reach it from outside your LAN / use it with
+  Stremio. See [Exposing publicly](/exposing).
+
+## Optional
+
+- A **Usenet provider + indexer** for NZB downloads.
+- **Cloud storage** (Google Drive / Dropbox / OneDrive / pCloud / S3) if you want
+  users to bring their own storage. See [BYOS](/byos).
+
+<Note>
+Everything else — PostgreSQL, NATS, qBittorrent, the object store, and the
+Torrin services — is bundled in the compose stack. You don't install them
+separately.
+</Note>

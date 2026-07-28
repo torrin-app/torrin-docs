@@ -1,0 +1,41 @@
+---
+title: "Bring Your Own Storage"
+description: "Pipe content to your own cloud provider via rclone."
+---
+
+BYOS lets a user send their content to **their own cloud storage** instead of
+(or alongside) the shared cache. It's built on [rclone](https://rclone.org), and
+everything is **encrypted** before it leaves the server (rclone `crypt`), so the
+provider only ever sees scrambled files.
+
+## Supported providers
+
+Google Drive, Dropbox, OneDrive, and pCloud via OAuth, plus any S3-compatible
+bucket via keys.
+
+## Enabling OAuth providers
+
+For the OAuth cloud providers, register an app with each provider and set its
+client ID/secret, plus the api's public base so the OAuth redirect works:
+
+| Variable | Description |
+|---|---|
+| `API_PUBLIC_URL` | The api's externally-reachable base — the OAuth redirect target. Must be reachable by the provider. |
+| `GDRIVE_CLIENT_ID` / `GDRIVE_CLIENT_SECRET` | Google Drive app. |
+| `DROPBOX_CLIENT_ID` / `DROPBOX_CLIENT_SECRET` | Dropbox app. |
+| `ONEDRIVE_CLIENT_ID` / `ONEDRIVE_CLIENT_SECRET` | OneDrive app. |
+| `PCLOUD_CLIENT_ID` / `PCLOUD_CLIENT_SECRET` | pCloud app. |
+
+An S3-compatible bucket needs no app registration — the user just enters the
+endpoint, bucket, and keys in settings.
+
+## Using it
+
+Once a provider is configured, a user connects their storage in the app's
+settings. New downloads are encrypted and written to their provider, and
+playback streams back from it — geo-routed and decrypted on the fly.
+
+<Note>
+Content on your own storage is **not** subject to the shared-cache eviction; it
+stays until you remove it. See [Storage](/storage).
+</Note>
