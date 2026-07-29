@@ -47,6 +47,159 @@
             ]
           }
         ]
+      },
+      {
+        "tab": "API Reference",
+        "openapi": "api-reference/openapi.yaml",
+        "groups": [
+          {
+            "group": "Introduction",
+            "pages": [
+              "api-reference/introduction",
+              "api-reference/concepts",
+              "api-reference/authentication"
+            ]
+          },
+          {
+            "group": "Account",
+            "pages": [
+              "GET /api/me",
+              "PUT /api/me",
+              "DELETE /api/me",
+              "POST /api/me/pause",
+              "POST /api/me/resume",
+              "GET /api/me/audit",
+              "POST /api/auth/regenerate-key",
+              "GET /api/history"
+            ]
+          },
+          {
+            "group": "Jobs",
+            "pages": [
+              "POST /api/jobs",
+              "GET /api/jobs",
+              "GET /api/jobs/{id}",
+              "GET /api/jobs/{id}/progress",
+              "GET /api/jobs/{id}/zip",
+              "POST /api/jobs/{id}/retry",
+              "POST /api/jobs/{id}/recheck",
+              "POST /api/jobs/{id}/sign",
+              "DELETE /api/jobs/{id}",
+              "POST /api/jobs/hoster",
+              "POST /api/jobs/nzb"
+            ]
+          },
+          {
+            "group": "Search & availability",
+            "pages": [
+              "GET /api/search",
+              "GET /api/availability/{hash}",
+              "POST /api/availability",
+              "POST /api/scrape",
+              "GET /api/usenet/search",
+              "POST /api/usenet/grab"
+            ]
+          },
+          {
+            "group": "Debrid keys",
+            "pages": [
+              "api-reference/byok",
+              "GET /api/rd/credentials",
+              "POST /api/rd/credentials",
+              "DELETE /api/rd/credentials",
+              "GET /api/alldebrid/credentials",
+              "POST /api/alldebrid/credentials",
+              "DELETE /api/alldebrid/credentials",
+              "GET /api/premiumize/credentials",
+              "POST /api/premiumize/credentials",
+              "DELETE /api/premiumize/credentials",
+              "GET /api/torbox/credentials",
+              "POST /api/torbox/credentials",
+              "DELETE /api/torbox/credentials",
+              "GET /api/debrid/usage"
+            ]
+          },
+          {
+            "group": "Storage",
+            "pages": [
+              "api-reference/byos",
+              "GET /api/storage",
+              "DELETE /api/storage",
+              "POST /api/storage/connect",
+              "GET /api/storage/oauth/{provider}/start"
+            ]
+          },
+          {
+            "group": "Usenet",
+            "pages": [
+              "api-reference/usenet",
+              "GET /api/usenet/credentials",
+              "POST /api/usenet/credentials",
+              "DELETE /api/usenet/credentials",
+              "POST /api/usenet/test",
+              "GET /api/usenet/indexer",
+              "POST /api/usenet/indexer",
+              "DELETE /api/usenet/indexer",
+              "POST /api/usenet/indexer/test"
+            ]
+          },
+          {
+            "group": "Cairn",
+            "pages": [
+              "api-reference/cairn",
+              "GET /api/cairn",
+              "POST /api/cairn",
+              "DELETE /api/cairn/{hash}",
+              "POST /api/cairn/{hash}/restore"
+            ]
+          },
+          {
+            "group": "RSS",
+            "pages": [
+              "GET /api/rss/feeds",
+              "POST /api/rss/feeds",
+              "PUT /api/rss/feeds/{id}",
+              "DELETE /api/rss/feeds/{id}",
+              "POST /api/rss/feeds/{id}/toggle",
+              "GET /api/rss/tags"
+            ]
+          },
+          {
+            "group": "RealDebrid-compatible",
+            "pages": [
+              "GET /rest/1.0/user",
+              "GET /rest/1.0/torrents",
+              "POST /rest/1.0/torrents/addMagnet",
+              "GET /rest/1.0/torrents/info/{id}",
+              "POST /rest/1.0/torrents/selectFiles/{id}",
+              "DELETE /rest/1.0/torrents/delete/{id}",
+              "GET /rest/1.0/torrents/instantAvailability/{hashes}",
+              "POST /rest/1.0/unrestrict/link"
+            ]
+          },
+          {
+            "group": "StremThru store",
+            "pages": [
+              "GET /v0/store/user",
+              "GET /v0/store/magnets",
+              "GET /v0/store/magnets/check",
+              "POST /v0/store/magnets",
+              "GET /v0/store/magnets/{id}",
+              "DELETE /v0/store/magnets/{id}",
+              "POST /v0/store/link/generate"
+            ]
+          },
+          {
+            "group": "Public",
+            "pages": [
+              "POST /api/auth/register",
+              "GET /api/plans",
+              "GET /api/hosters",
+              "GET /api/sites",
+              "GET /api/stats/public"
+            ]
+          }
+        ]
       }
     ]
   },

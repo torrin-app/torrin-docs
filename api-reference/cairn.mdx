@@ -1,0 +1,44 @@
+---
+title: "Cairn"
+description: "Permanent, Usenet-backed archive of your cached content."
+---
+
+Torrin's shared cache is a cache — content gets evicted when it's cold or over capacity.
+**Cairn** is the escape hatch: it posts a cached item to Usenet, so even after the hot copy
+is evicted, the item can be re-hydrated on demand instead of re-downloaded from the source.
+
+## Why
+
+- **Permanence without the storage bill.** Keeping everything hot is expensive; Usenet
+  retention is cheap and long. Cairn trades an instant hot copy for a durable cold one.
+- **Survives eviction.** An archived title comes back even if it's since dropped out of the
+  live cache and the original torrent is dead.
+
+## How it works
+
+```
+POST /api/cairn                     archive an item
+      │
+   torrin posts the cached blobs to Usenet, stores the NZB
+      │
+   (later) the hot copy is evicted
+      │
+POST /api/cairn/{hash}/restore      re-hydrate from the stored NZB → back in the cache
+```
+
+The NZB (the index needed to pull it back) is kept durably and backed up, so a restore is a
+Usenet re-download, not a re-leech of the original.
+
+## The endpoints
+
+| Call | Does |
+| --- | --- |
+| `GET /api/cairn` | List your archived items. |
+| `POST /api/cairn` | Archive a cached item by info-hash (queued, `202`). |
+| `POST /api/cairn/{hash}/restore` | Re-hydrate an archived item back into the cache. |
+| `DELETE /api/cairn/{hash}` | Drop the archive. |
+
+<Note>
+Archiving is queued and happens in the background — posting to Usenet takes minutes per title.
+The item stays streamable from cache in the meantime.
+</Note>

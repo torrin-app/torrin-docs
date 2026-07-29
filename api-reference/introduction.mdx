@@ -1,0 +1,70 @@
+---
+title: "API Overview"
+description: "Torrin's HTTP API — RealDebrid-compatible, StremThru store, and public endpoints."
+---
+
+Torrin speaks the **RealDebrid API**. Most clients and Stremio addons that already
+support RealDebrid work by pointing their base URL at your instance and using your
+torrin API key. On top of that, torrin exposes a **StremThru store** API for clients
+like Comet, and a few **public** endpoints for signup and instance metadata.
+
+## Base URL
+
+All requests go to your instance:
+
+```
+https://api.torrin.app
+```
+
+If you self-host, use your own base URL instead. Every path below is relative to it.
+
+## The three surfaces
+
+<CardGroup cols={3}>
+  <Card title="RealDebrid-compatible" icon="clapperboard">
+    `/rest/1.0/*` — user, torrents, and link unrestriction in RealDebrid's exact
+    response shapes. This is what Stremio addons and RD clients use.
+  </Card>
+  <Card title="StremThru store" icon="box">
+    `/v0/store/*` — the StremThru store contract used by clients such as Comet.
+  </Card>
+  <Card title="Public" icon="globe">
+    `/api/*` — create an account and read instance metadata. No auth required.
+  </Card>
+</CardGroup>
+
+## A first request
+
+Fetch the authenticated user with your API key:
+
+```bash
+curl https://api.torrin.app/rest/1.0/user \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```json
+{
+  "id": 1779700568426389947,
+  "username": "you",
+  "email": "you@example.com",
+  "type": "premium",
+  "premium": 2419200,
+  "expiration": "2026-08-26T12:00:00Z"
+}
+```
+
+<Note>
+`premium` is the number of seconds left on the subscription — this is how RD clients
+detect an active account, so torrin returns it in the same shape.
+</Note>
+
+## Conventions
+
+- **Auth** is your API key as a bearer token. See [Authentication](/api-reference/authentication).
+- **Times** are RFC 3339 (`2026-08-26T12:00:00Z`).
+- **Errors** use the surface's native shape — RealDebrid's `{ error, error_code }` on
+  `/rest/1.0`, and StremThru's `{ error: { code, message } }` on `/v0/store`. Each endpoint
+  below lists the status codes it can return.
+
+Use the endpoint pages in the sidebar to see every parameter, response schema, and a
+runnable example you can try with your own key.

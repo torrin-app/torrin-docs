@@ -1,0 +1,1587 @@
+openapi: 3.0.3
+info:
+  title: Torrin API
+  version: "1.0.0"
+  license:
+    name: AGPL-3.0
+    url: https://www.gnu.org/licenses/agpl-3.0.en.html
+  description: |
+    Torrin's HTTP API has two halves:
+
+    - The **native app API** under `/api` — the job engine, search, availability,
+      bring-your-own-key debrid, bring-your-own-storage, Usenet, Cairn, and RSS. This is
+      "torrin's own API"; it takes and returns torrin's own JSON.
+    - Two **compatibility surfaces** for existing clients: a **RealDebrid-compatible** API
+      under `/rest/1.0` (Stremio RD addons) and a **StremThru store** API under `/v0/store`
+      (clients like Comet).
+
+    All authenticated endpoints use your instance **API key** as a bearer token.
+servers:
+  - url: https://api.torrin.app
+    description: Hosted torrin (api.torrin.app)
+  - url: "{baseUrl}"
+    description: Your self-hosted instance
+    variables:
+      baseUrl:
+        default: https://api.torrin.app
+        description: The base URL of your torrin instance
+security:
+  - bearerAuth: []
+tags:
+  - name: Account
+    description: The authenticated user and account management.
+  - name: Jobs
+    description: The download engine. Add a source, track it, stream the result.
+  - name: Search & availability
+    description: Find content and check whether it's already cached.
+  - name: Debrid keys
+    description: Bring your own RealDebrid / AllDebrid / Premiumize / TorBox key (BYOK).
+  - name: Storage
+    description: Bring your own storage to stream from your own cloud (BYOS).
+  - name: Usenet
+    description: Usenet provider, indexer, search, and grabs.
+  - name: Cairn
+    description: Permanent Usenet-backed archive of cached content.
+  - name: RSS
+    description: Auto-add feeds.
+  - name: RealDebrid-compatible
+    description: RealDebrid API shapes under /rest/1.0, for RD clients and Stremio addons.
+  - name: StremThru store
+    description: StremThru store API under /v0/store, for clients like Comet.
+  - name: Public
+    description: Unauthenticated endpoints for signup and instance metadata.
+
+paths:
+  # ---------------- Account ----------------
+  /api/me:
+    get:
+      tags: [Account]
+      summary: Get the current account
+      operationId: getMe
+      responses:
+        "200":
+          description: The authenticated account.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Account" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    put:
+      tags: [Account]
+      summary: Update email
+      operationId: updateMe
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, format: email }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { email: { type: string } }
+    delete:
+      tags: [Account]
+      summary: Delete the account
+      operationId: deleteMe
+      responses:
+        "200":
+          description: Deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { status: { type: string, example: account deleted } }
+
+  /api/me/pause:
+    post:
+      tags: [Account]
+      summary: Pause the subscription
+      description: Freezes the remaining time on the subscription so it isn't consumed while unused.
+      operationId: pauseAccount
+      responses:
+        "200":
+          description: Paused.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  paused: { type: boolean, example: true }
+                  remaining_days: { type: integer }
+
+  /api/me/resume:
+    post:
+      tags: [Account]
+      summary: Resume the subscription
+      operationId: resumeAccount
+      responses:
+        "200":
+          description: Resumed.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  paused: { type: boolean, example: false }
+                  expires_at: { type: string, format: date-time }
+
+  /api/me/audit:
+    get:
+      tags: [Account]
+      summary: Account audit log
+      operationId: accountAudit
+      responses:
+        "200":
+          description: Recent account events.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+
+  /api/auth/regenerate-key:
+    post:
+      tags: [Account]
+      summary: Regenerate the API key
+      description: Rotates the API key. The old key stops working immediately.
+      operationId: regenerateKey
+      responses:
+        "200":
+          description: A new API key.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { api_key: { type: string } }
+
+  /api/history:
+    get:
+      tags: [Account]
+      summary: Watch history
+      operationId: getHistory
+      responses:
+        "200":
+          description: The user's play history.
+          content:
+            application/json:
+              schema: { type: array, items: { type: object, additionalProperties: true } }
+
+  # ---------------- Jobs ----------------
+  /api/jobs:
+    post:
+      tags: [Jobs]
+      summary: Add a job
+      description: |
+        Add a magnet, info-hash, or a supported web/file-host URL. Cached content returns
+        `200` with a ready job (stream URLs populated); a new download returns `202`.
+      operationId: submitJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [magnet]
+              properties:
+                magnet:
+                  type: string
+                  description: A magnet URI, a 40-char info-hash, or a supported web/file-host URL.
+      responses:
+        "200":
+          description: Cached, ready to stream.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        "202":
+          description: Accepted, downloading.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403":
+          description: Blocked by the safety policy.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/SlotLimit" }
+    get:
+      tags: [Jobs]
+      summary: List jobs
+      operationId: listJobs
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50, maximum: 200 }
+        - name: before
+          in: query
+          description: RFC3339 cursor for pagination (returns jobs older than this).
+          schema: { type: string, format: date-time }
+        - name: before_id
+          in: query
+          description: Tiebreaker job id used with `before`.
+          schema: { type: string }
+      responses:
+        "200":
+          description: The user's jobs, newest first.
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Job" } }
+
+  /api/jobs/{id}:
+    get:
+      tags: [Jobs]
+      summary: Get a job
+      operationId: getJob
+      parameters: [{ $ref: "#/components/parameters/JobId" }]
+      responses:
+        "200":
+          description: The job.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [Jobs]
+      summary: Delete a job
+      operationId: deleteJob
+      parameters: [{ $ref: "#/components/parameters/JobId" }]
+      responses:
+        "200":
+          description: Deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { status: { type: string, example: deleted } }
+        "403":
+          description: The job is seeding until it meets its ratio/time target.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/jobs/{id}/progress:
+    get:
+      tags: [Jobs]
+      summary: Job progress
+      description: Lightweight status/progress for polling an active download.
+      operationId: jobProgress
+      parameters: [{ $ref: "#/components/parameters/JobId" }]
+      responses:
+        "200":
+          description: Progress snapshot.
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/jobs/{id}/zip:
+    get:
+      tags: [Jobs]
+      summary: Download all files as a zip
+      operationId: jobZip
+      parameters: [{ $ref: "#/components/parameters/JobId" }]
+      responses:
+        "307": { description: Redirect to a signed zip URL. }
+        "409": { description: The job is not complete. }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/jobs/{id}/retry:
+    post:
+      tags: [Jobs]
+      summary: Retry a job
+      description: Requeues a failed or evicted job.
+      operationId: retryJob
+      parameters: [{ $ref: "#/components/parameters/JobId" }]
+      responses:
+        "202":
+          description: Requeued.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/jobs/{id}/recheck:
+    post:
+      tags: [Jobs]
+      summary: Recheck a job
+      description: Re-verifies a completed torrent or Usenet download.
+      operationId: recheckJob
+      parameters: [{ $ref: "#/components/parameters/JobId" }]
+      responses:
+        "202":
+          description: Rechecking.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/jobs/{id}/sign:
+    post:
+      tags: [Jobs]
+      summary: Sign stream URLs
+      description: Returns fresh signed, geo-routed stream URLs for a completed job's files.
+      operationId: signJob
+      parameters: [{ $ref: "#/components/parameters/JobId" }]
+      responses:
+        "200":
+          description: Signed streams.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job_id: { type: string }
+                  streams:
+                    type: array
+                    items: { $ref: "#/components/schemas/Stream" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/jobs/hoster:
+    post:
+      tags: [Jobs]
+      summary: Add a file-host link
+      description: Unrestrict a supported file-host URL. Requires a paid plan.
+      operationId: submitHoster
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties: { url: { type: string } }
+      responses:
+        "200":
+          description: The job.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { description: Hoster links require a paid plan. }
+
+  /api/jobs/nzb:
+    post:
+      tags: [Jobs]
+      summary: Add an NZB
+      description: Upload an `.nzb` file body to download from Usenet.
+      operationId: submitNzb
+      parameters:
+        - name: name
+          in: query
+          description: Optional display name.
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/xml:
+            schema: { type: string, format: binary }
+      responses:
+        "202":
+          description: Accepted, downloading.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  # ---------------- Search & availability ----------------
+  /api/search:
+    get:
+      tags: [Search & availability]
+      summary: Search the cache
+      description: |
+        The public search API. Give an IMDB id (or a title) and get back everything torrin has
+        cached for it, ready to stream — build addons, tools, whatever you want. One person's
+        grab is cached for everyone. Requires an active monthly, yearly, or lifetime plan.
+      operationId: search
+      parameters:
+        - { name: imdb, in: query, schema: { type: string }, description: "IMDB id, e.g. tt0816692 (the tt prefix is optional)." }
+        - name: title
+          in: query
+          description: Title to match. Repeatable. Use instead of, or alongside, imdb.
+          schema: { type: array, items: { type: string } }
+          style: form
+          explode: true
+        - { name: year, in: query, schema: { type: integer }, description: Filter title matches by release year. }
+        - { name: season, in: query, schema: { type: integer } }
+        - { name: episode, in: query, schema: { type: integer }, description: "With season, returns only files for that episode." }
+      responses:
+        "200":
+          description: Cached results.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results: { type: array, items: { $ref: "#/components/schemas/SearchResult" } }
+                  count: { type: integer }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { description: "Requires an active monthly, yearly, or lifetime plan." }
+
+  /api/availability/{hash}:
+    get:
+      tags: [Search & availability]
+      summary: Check one hash
+      description: Whether a single info-hash is cached in torrin's shared store.
+      operationId: availabilityOne
+      parameters:
+        - { name: hash, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Availability.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  available: { type: boolean }
+                  info_hash: { type: string }
+                  files:
+                    type: array
+                    items: { $ref: "#/components/schemas/JobFile" }
+
+  /api/availability:
+    post:
+      tags: [Search & availability]
+      summary: Check many hashes
+      operationId: availabilityMany
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [hashes]
+              properties:
+                hashes: { type: array, items: { type: string } }
+      responses:
+        "200":
+          description: Availability keyed by hash.
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+
+  /api/scrape:
+    post:
+      tags: [Search & availability]
+      summary: Queue a metadata scrape
+      description: Asks torrin to fetch metadata for the given hashes in the background.
+      operationId: scrape
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                hashes: { type: array, items: { type: string } }
+      responses:
+        "200":
+          description: Accepted.
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+
+  /api/usenet/search:
+    get:
+      tags: [Search & availability]
+      summary: Search Usenet
+      description: Searches the configured Usenet indexer. Requires an indexer to be set.
+      operationId: usenetSearch
+      parameters:
+        - { name: imdb, in: query, schema: { type: string } }
+        - { name: season, in: query, schema: { type: integer } }
+        - { name: episode, in: query, schema: { type: integer } }
+      responses:
+        "200":
+          description: Indexer results.
+          content:
+            application/json:
+              schema: { type: array, items: { type: object, additionalProperties: true } }
+
+  /api/usenet/grab:
+    post:
+      tags: [Search & availability]
+      summary: Grab a Usenet result
+      operationId: usenetGrab
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id: { type: string }
+                title: { type: string }
+      responses:
+        "202":
+          description: Accepted, downloading.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+
+  # ---------------- Debrid keys (BYOK) ----------------
+  /api/rd/credentials:
+    get: { tags: [Debrid keys], summary: Get RealDebrid key status, operationId: getRdCreds, responses: { "200": { $ref: "#/components/responses/CredStatus" } } }
+    post:
+      tags: [Debrid keys]
+      summary: Set RealDebrid key
+      operationId: setRdCreds
+      requestBody: { $ref: "#/components/requestBodies/ApiKey" }
+      responses: { "200": { $ref: "#/components/responses/CredConfigured" }, "400": { $ref: "#/components/responses/BadRequest" } }
+    delete: { tags: [Debrid keys], summary: Remove RealDebrid key, operationId: delRdCreds, responses: { "200": { $ref: "#/components/responses/StatusOk" } } }
+
+  /api/alldebrid/credentials:
+    get: { tags: [Debrid keys], summary: Get AllDebrid key status, operationId: getAdCreds, responses: { "200": { $ref: "#/components/responses/CredStatus" } } }
+    post:
+      tags: [Debrid keys]
+      summary: Set AllDebrid key
+      operationId: setAdCreds
+      requestBody: { $ref: "#/components/requestBodies/ApiKey" }
+      responses: { "200": { $ref: "#/components/responses/CredConfigured" }, "400": { $ref: "#/components/responses/BadRequest" } }
+    delete: { tags: [Debrid keys], summary: Remove AllDebrid key, operationId: delAdCreds, responses: { "200": { $ref: "#/components/responses/StatusOk" } } }
+
+  /api/premiumize/credentials:
+    get: { tags: [Debrid keys], summary: Get Premiumize key status, operationId: getPmCreds, responses: { "200": { $ref: "#/components/responses/CredStatus" } } }
+    post:
+      tags: [Debrid keys]
+      summary: Set Premiumize key
+      operationId: setPmCreds
+      requestBody: { $ref: "#/components/requestBodies/ApiKey" }
+      responses: { "200": { $ref: "#/components/responses/CredConfigured" }, "400": { $ref: "#/components/responses/BadRequest" } }
+    delete: { tags: [Debrid keys], summary: Remove Premiumize key, operationId: delPmCreds, responses: { "200": { $ref: "#/components/responses/StatusOk" } } }
+
+  /api/torbox/credentials:
+    get: { tags: [Debrid keys], summary: Get TorBox key status, operationId: getTbCreds, responses: { "200": { $ref: "#/components/responses/CredStatus" } } }
+    post:
+      tags: [Debrid keys]
+      summary: Set TorBox key
+      operationId: setTbCreds
+      requestBody: { $ref: "#/components/requestBodies/ApiKey" }
+      responses: { "200": { $ref: "#/components/responses/CredConfigured" }, "400": { $ref: "#/components/responses/BadRequest" } }
+    delete: { tags: [Debrid keys], summary: Remove TorBox key, operationId: delTbCreds, responses: { "200": { $ref: "#/components/responses/StatusOk" } } }
+
+  /api/debrid/usage:
+    get:
+      tags: [Debrid keys]
+      summary: Debrid usage
+      description: Reports which providers are configured and how they've been used.
+      operationId: debridUsage
+      responses:
+        "200":
+          description: Usage per provider.
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+
+  # ---------------- Storage (BYOS) ----------------
+  /api/storage:
+    get:
+      tags: [Storage]
+      summary: Get storage status
+      operationId: getStorage
+      responses:
+        "200":
+          description: Whether BYOS is connected.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  connected: { type: boolean }
+    delete:
+      tags: [Storage]
+      summary: Disconnect storage
+      operationId: deleteStorage
+      responses: { "200": { $ref: "#/components/responses/StatusOk" } }
+
+  /api/storage/connect:
+    post:
+      tags: [Storage]
+      summary: Connect storage
+      description: |
+        Connect a bring-your-own-storage backend (S3-compatible or an rclone remote). Content
+        you stream is written to your storage, encrypted, and served back through torrin.
+      operationId: connectStorage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider]
+              properties:
+                provider: { type: string, description: "e.g. s3, drive, dropbox, onedrive, pcloud." }
+                endpoint: { type: string }
+                region: { type: string }
+                bucket: { type: string }
+                access_key: { type: string }
+                secret_key: { type: string }
+                prefix: { type: string }
+                user: { type: string }
+                pass: { type: string }
+                token: { type: string }
+                config: { type: string, description: "Raw rclone config for advanced backends." }
+      responses:
+        "200": { $ref: "#/components/responses/StatusOk" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  /api/storage/oauth/{provider}/start:
+    get:
+      tags: [Storage]
+      summary: Start storage OAuth
+      description: Begins the OAuth flow for a provider that needs it (e.g. Google Drive).
+      operationId: storageOAuthStart
+      parameters:
+        - { name: provider, in: path, required: true, schema: { type: string } }
+      responses:
+        "307": { description: Redirect to the provider's consent screen. }
+
+  # ---------------- Usenet ----------------
+  /api/usenet/credentials:
+    get:
+      tags: [Usenet]
+      summary: Get Usenet provider status
+      operationId: getUsenetCreds
+      responses:
+        "200":
+          description: Whether a provider is configured.
+          content:
+            application/json:
+              schema: { type: object, properties: { configured: { type: boolean } } }
+    post:
+      tags: [Usenet]
+      summary: Set Usenet provider
+      operationId: setUsenetCreds
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                host: { type: string }
+                port: { type: integer }
+                username: { type: string }
+                password: { type: string }
+                connections: { type: integer }
+      responses:
+        "200":
+          description: Configured.
+          content:
+            application/json:
+              schema: { type: object, properties: { configured: { type: boolean } } }
+    delete:
+      tags: [Usenet]
+      summary: Remove Usenet provider
+      operationId: delUsenetCreds
+      responses: { "200": { $ref: "#/components/responses/StatusOk" } }
+
+  /api/usenet/test:
+    post:
+      tags: [Usenet]
+      summary: Test the Usenet provider
+      operationId: testUsenet
+      responses:
+        "200":
+          description: Connection result.
+          content:
+            application/json:
+              schema: { type: object, properties: { ok: { type: boolean } } }
+
+  /api/usenet/indexer:
+    get:
+      tags: [Usenet]
+      summary: Get indexer status
+      operationId: getIndexer
+      responses:
+        "200":
+          description: The configured indexer.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  configured: { type: boolean }
+                  url: { type: string }
+    post:
+      tags: [Usenet]
+      summary: Set indexer
+      operationId: setIndexer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url: { type: string, description: "Newznab-compatible indexer URL." }
+                api_key: { type: string }
+      responses:
+        "200":
+          description: Configured.
+          content:
+            application/json:
+              schema: { type: object, properties: { configured: { type: boolean }, url: { type: string } } }
+    delete:
+      tags: [Usenet]
+      summary: Remove indexer
+      operationId: delIndexer
+      responses: { "200": { $ref: "#/components/responses/StatusOk" } }
+
+  /api/usenet/indexer/test:
+    post:
+      tags: [Usenet]
+      summary: Test an indexer
+      operationId: testIndexer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url: { type: string }
+                api_key: { type: string }
+      responses:
+        "200":
+          description: Result.
+          content:
+            application/json:
+              schema: { type: object, properties: { ok: { type: boolean } } }
+
+  # ---------------- Cairn ----------------
+  /api/cairn:
+    get:
+      tags: [Cairn]
+      summary: List archives
+      description: Items you've archived to torrin's permanent Usenet-backed store.
+      operationId: listCairn
+      responses:
+        "200":
+          description: Archived items.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cairns: { type: array, items: { type: object, additionalProperties: true } }
+    post:
+      tags: [Cairn]
+      summary: Archive an item
+      description: Posts a cached item to Usenet so it survives cache eviction.
+      operationId: addCairn
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [info_hash]
+              properties: { info_hash: { type: string } }
+      responses:
+        "202":
+          description: Queued for archiving.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { status: { type: string, example: queued } }
+
+  /api/cairn/{hash}:
+    delete:
+      tags: [Cairn]
+      summary: Remove an archive
+      operationId: delCairn
+      parameters:
+        - { name: hash, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Removed.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { status: { type: string, example: removed } }
+
+  /api/cairn/{hash}/restore:
+    post:
+      tags: [Cairn]
+      summary: Restore from archive
+      description: Re-hydrates an archived item back into the live cache from Usenet.
+      operationId: restoreCairn
+      parameters:
+        - { name: hash, in: path, required: true, schema: { type: string } }
+      responses:
+        "202":
+          description: Restoring.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+
+  # ---------------- RSS ----------------
+  /api/rss/feeds:
+    get:
+      tags: [RSS]
+      summary: List feeds
+      operationId: listFeeds
+      responses:
+        "200":
+          description: Configured feeds.
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/RssFeed" } }
+    post:
+      tags: [RSS]
+      summary: Add a feed
+      description: Adds an RSS feed; matching items are auto-added as jobs.
+      operationId: addFeed
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url: { type: string }
+                name: { type: string }
+                filter: { type: string, description: "Substring/keyword filter." }
+                criteria: { type: object, additionalProperties: true, description: "Structured match criteria." }
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RssFeed" }
+
+  /api/rss/feeds/{id}:
+    put:
+      tags: [RSS]
+      summary: Update a feed
+      operationId: updateFeed
+      parameters: [{ $ref: "#/components/parameters/FeedId" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                url: { type: string }
+                name: { type: string }
+                filter: { type: string }
+                criteria: { type: object, additionalProperties: true }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RssFeed" }
+    delete:
+      tags: [RSS]
+      summary: Delete a feed
+      operationId: deleteFeed
+      parameters: [{ $ref: "#/components/parameters/FeedId" }]
+      responses: { "200": { $ref: "#/components/responses/StatusOk" } }
+
+  /api/rss/feeds/{id}/toggle:
+    post:
+      tags: [RSS]
+      summary: Enable or disable a feed
+      operationId: toggleFeed
+      parameters: [{ $ref: "#/components/parameters/FeedId" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: { enabled: { type: boolean } }
+      responses:
+        "200":
+          description: Updated feed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RssFeed" }
+
+  /api/rss/tags:
+    get:
+      tags: [RSS]
+      summary: List feed tags
+      operationId: listFeedTags
+      responses:
+        "200":
+          description: Tags.
+          content:
+            application/json:
+              schema: { type: array, items: { type: string } }
+
+  # ---------------- RealDebrid-compatible ----------------
+  /rest/1.0/user:
+    get:
+      tags: [RealDebrid-compatible]
+      summary: Get the current user
+      operationId: rdGetUser
+      responses:
+        "200":
+          description: The authenticated user (RealDebrid shape).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RDUser" }
+        "401": { $ref: "#/components/responses/RDUnauthorized" }
+        "403": { $ref: "#/components/responses/RDForbidden" }
+
+  /rest/1.0/torrents:
+    get:
+      tags: [RealDebrid-compatible]
+      summary: List torrents
+      operationId: rdListTorrents
+      responses:
+        "200":
+          description: Up to 100 recent torrents.
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/RDTorrent" } }
+        "401": { $ref: "#/components/responses/RDUnauthorized" }
+
+  /rest/1.0/torrents/addMagnet:
+    post:
+      tags: [RealDebrid-compatible]
+      summary: Add a magnet
+      operationId: rdAddMagnet
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [magnet]
+              properties: { magnet: { type: string } }
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { id: { type: string }, uri: { type: string } }
+        "400": { $ref: "#/components/responses/RDBadRequest" }
+        "401": { $ref: "#/components/responses/RDUnauthorized" }
+        "503": { $ref: "#/components/responses/RDSlotLimit" }
+
+  /rest/1.0/torrents/info/{id}:
+    get:
+      tags: [RealDebrid-compatible]
+      summary: Get torrent info
+      operationId: rdTorrentInfo
+      parameters: [{ $ref: "#/components/parameters/RDId" }]
+      responses:
+        "200":
+          description: Torrent detail with files and links.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RDTorrentInfo" }
+        "401": { $ref: "#/components/responses/RDUnauthorized" }
+        "404": { $ref: "#/components/responses/RDNotFound" }
+
+  /rest/1.0/torrents/selectFiles/{id}:
+    post:
+      tags: [RealDebrid-compatible]
+      summary: Select files
+      description: Compatibility no-op — torrin auto-selects video files server-side.
+      operationId: rdSelectFiles
+      parameters: [{ $ref: "#/components/parameters/RDId" }]
+      responses:
+        "204": { description: Accepted. }
+        "401": { $ref: "#/components/responses/RDUnauthorized" }
+        "404": { $ref: "#/components/responses/RDNotFound" }
+
+  /rest/1.0/torrents/delete/{id}:
+    delete:
+      tags: [RealDebrid-compatible]
+      summary: Delete a torrent
+      operationId: rdDeleteTorrent
+      parameters: [{ $ref: "#/components/parameters/RDId" }]
+      responses:
+        "204": { description: Deleted. }
+        "401": { $ref: "#/components/responses/RDUnauthorized" }
+        "404": { $ref: "#/components/responses/RDNotFound" }
+
+  /rest/1.0/torrents/instantAvailability/{hashes}:
+    get:
+      tags: [RealDebrid-compatible]
+      summary: Instant availability
+      description: Returns a key for every hash — a `rd` array when cached, `{}` when not.
+      operationId: rdInstantAvailability
+      parameters:
+        - { name: hashes, in: path, required: true, description: "Slash-separated info-hashes.", schema: { type: string } }
+      responses:
+        "200":
+          description: Availability keyed by hash.
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/RDUnauthorized" }
+
+  /rest/1.0/unrestrict/link:
+    post:
+      tags: [RealDebrid-compatible]
+      summary: Unrestrict a link
+      description: Turns a `torrin://` file reference into a signed HTTPS URL valid 24h.
+      operationId: rdUnrestrict
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [link]
+              properties: { link: { type: string } }
+      responses:
+        "200":
+          description: A playable link.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RDUnrestrict" }
+        "400": { $ref: "#/components/responses/RDBadRequest" }
+        "401": { $ref: "#/components/responses/RDUnauthorized" }
+
+  # ---------------- StremThru store ----------------
+  /v0/store/user:
+    get:
+      tags: [StremThru store]
+      summary: Get store user
+      operationId: stUser
+      responses:
+        "200":
+          description: The store user.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      email: { type: string }
+                      subscription_status: { type: string }
+        "401": { $ref: "#/components/responses/StoreUnauthorized" }
+
+  /v0/store/magnets:
+    get:
+      tags: [StremThru store]
+      summary: List magnets
+      operationId: stListMagnets
+      responses:
+        "200":
+          description: The user's magnets.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      items: { type: array, items: { $ref: "#/components/schemas/StMagnet" } }
+                      total_items: { type: integer }
+        "401": { $ref: "#/components/responses/StoreUnauthorized" }
+    post:
+      tags: [StremThru store]
+      summary: Add a magnet
+      operationId: stAddMagnet
+      parameters:
+        - { name: sid, in: query, description: "Optional Stremio id for metadata.", schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [magnet]
+              properties: { magnet: { type: string } }
+      responses:
+        "200":
+          description: The magnet.
+          content:
+            application/json:
+              schema: { type: object, properties: { data: { $ref: "#/components/schemas/StMagnet" } } }
+        "400": { $ref: "#/components/responses/StoreBadRequest" }
+        "401": { $ref: "#/components/responses/StoreUnauthorized" }
+        "429": { $ref: "#/components/responses/StoreSlotLimit" }
+
+  /v0/store/magnets/check:
+    get:
+      tags: [StremThru store]
+      summary: Check magnets
+      description: "Per-magnet status: cached, acceleratable, or unknown."
+      operationId: stCheckMagnets
+      parameters:
+        - name: magnet
+          in: query
+          description: Magnet or hash. Repeat or comma-separate for multiple.
+          schema: { type: array, items: { type: string } }
+          style: form
+          explode: true
+      responses:
+        "200":
+          description: Check results.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      items: { type: array, items: { $ref: "#/components/schemas/StMagnetCheck" } }
+        "401": { $ref: "#/components/responses/StoreUnauthorized" }
+
+  /v0/store/magnets/{id}:
+    get:
+      tags: [StremThru store]
+      summary: Get a magnet
+      operationId: stGetMagnet
+      parameters: [{ $ref: "#/components/parameters/StId" }]
+      responses:
+        "200":
+          description: The magnet.
+          content:
+            application/json:
+              schema: { type: object, properties: { data: { $ref: "#/components/schemas/StMagnet" } } }
+        "401": { $ref: "#/components/responses/StoreUnauthorized" }
+        "404": { $ref: "#/components/responses/StoreNotFound" }
+    delete:
+      tags: [StremThru store]
+      summary: Delete a magnet
+      operationId: stDeleteMagnet
+      parameters: [{ $ref: "#/components/parameters/StId" }]
+      responses:
+        "204": { description: Deleted. }
+        "401": { $ref: "#/components/responses/StoreUnauthorized" }
+        "404": { $ref: "#/components/responses/StoreNotFound" }
+
+  /v0/store/link/generate:
+    post:
+      tags: [StremThru store]
+      summary: Generate link
+      operationId: stGenerateLink
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [link]
+              properties: { link: { type: string } }
+      responses:
+        "200":
+          description: The resolved link.
+          content:
+            application/json:
+              schema: { type: object, properties: { data: { type: object, properties: { link: { type: string } } } } }
+        "400": { $ref: "#/components/responses/StoreBadRequest" }
+        "401": { $ref: "#/components/responses/StoreUnauthorized" }
+
+  # ---------------- Public ----------------
+  /api/auth/register:
+    post:
+      tags: [Public]
+      summary: Create an account
+      operationId: register
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+                ref: { type: string, description: Optional referral code. }
+      responses:
+        "201":
+          description: The new account.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  api_key: { type: string }
+                  email: { type: string }
+                  plan: { type: string }
+        "400": { description: "Missing, disposable, or previously-deleted email." }
+        "409": { description: An account with that email already exists. }
+
+  /api/plans:
+    get:
+      tags: [Public]
+      summary: List plans
+      operationId: getPlans
+      security: []
+      responses:
+        "200":
+          description: Available plans.
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Plan" } }
+
+  /api/hosters:
+    get:
+      tags: [Public]
+      summary: List supported file hosters
+      operationId: getHosters
+      security: []
+      responses:
+        "200":
+          description: Supported hosters.
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "502": { description: The upstream host list was unreachable. }
+
+  /api/sites:
+    get:
+      tags: [Public]
+      summary: List supported link sites
+      operationId: getSites
+      security: []
+      responses:
+        "200":
+          description: Supported sites.
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "503": { description: The site list is not ready yet. }
+
+  /api/stats/public:
+    get:
+      tags: [Public]
+      summary: Public instance stats
+      operationId: getPublicStats
+      security: []
+      responses:
+        "200":
+          description: Current + 90-day metrics.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  current: { type: object, additionalProperties: true }
+                  history: { type: array, items: { type: object, additionalProperties: true } }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        Your instance API key as a bearer token: `Authorization: Bearer <api_key>`.
+        `/rest/1.0` also accepts `?auth_token=`; `/v0/store` also accepts
+        `X-StremThru-Store-Authorization: Bearer <api_key>`.
+
+  parameters:
+    JobId: { name: id, in: path, required: true, description: The job id., schema: { type: string } }
+    FeedId: { name: id, in: path, required: true, description: The feed id., schema: { type: string } }
+    RDId: { name: id, in: path, required: true, description: The torrent id., schema: { type: string } }
+    StId: { name: id, in: path, required: true, description: The magnet id., schema: { type: string } }
+
+  requestBodies:
+    ApiKey:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [api_key]
+            properties: { api_key: { type: string } }
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid API key.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    BadRequest:
+      description: Invalid request.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Not found or not yours.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    SlotLimit:
+      description: The plan's concurrent-job limit is reached.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    StatusOk:
+      description: OK.
+      content:
+        application/json:
+          schema: { type: object, properties: { status: { type: string, example: ok } } }
+    CredStatus:
+      description: Whether the key is configured (masked).
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              configured: { type: boolean }
+              key: { type: string, description: Masked key. }
+    CredConfigured:
+      description: The key was validated and saved.
+      content:
+        application/json:
+          schema: { type: object, properties: { configured: { type: boolean, example: true } } }
+    RDUnauthorized:
+      description: Missing or invalid API key.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/RDError" }
+          example: { error: bad token, error_code: 8 }
+    RDForbidden:
+      description: The subscription is paused or expired.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/RDError" }
+    RDBadRequest:
+      description: Invalid request.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/RDError" }
+    RDNotFound:
+      description: Unknown resource.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/RDError" }
+    RDSlotLimit:
+      description: Slot limit reached.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/RDError" }
+    StoreUnauthorized:
+      description: Missing or invalid API key.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/StoreError" }
+    StoreBadRequest:
+      description: Invalid request body.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/StoreError" }
+    StoreNotFound:
+      description: Not found or not yours.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/StoreError" }
+    StoreSlotLimit:
+      description: Slot limit reached.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/StoreError" }
+
+  schemas:
+    Account:
+      type: object
+      properties:
+        id: { type: string }
+        email: { type: string }
+        plan: { type: string }
+        api_key: { type: string }
+        expires_at: { type: string, format: date-time }
+        paused: { type: boolean }
+    Job:
+      type: object
+      properties:
+        id: { type: string }
+        info_hash: { type: string }
+        name: { type: string }
+        magnet: { type: string }
+        source: { type: string, enum: [torrent, usenet, hoster, ytdlp] }
+        status:
+          type: string
+          enum: [pending, queued, downloading, processing, publishing, complete, seeding, failed, evicted]
+        seed: { type: boolean }
+        error: { type: string }
+        file_size: { type: integer, format: int64 }
+        progress: { type: number }
+        speed: { type: integer, format: int64 }
+        imdb_id: { type: string }
+        files:
+          type: array
+          items: { $ref: "#/components/schemas/JobFile" }
+        selected_indexes: { type: array, items: { type: integer } }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        stream_urls:
+          type: array
+          items: { $ref: "#/components/schemas/Stream" }
+    JobFile:
+      type: object
+      properties:
+        index: { type: integer }
+        name: { type: string }
+        size: { type: integer, format: int64 }
+        media_info: { type: object, additionalProperties: true }
+    Stream:
+      type: object
+      properties:
+        file_name: { type: string }
+        size: { type: integer, format: int64 }
+        signed_url: { type: string, description: "Signed HTTPS URL, valid 24h, geo-routed." }
+    SearchResult:
+      type: object
+      properties:
+        name: { type: string }
+        info_hash: { type: string }
+        size: { type: integer, format: int64 }
+        magnet: { type: string }
+        cached: { type: boolean }
+        files:
+          type: array
+          items: { $ref: "#/components/schemas/SearchFile" }
+    SearchFile:
+      type: object
+      properties:
+        file_name: { type: string }
+        index: { type: integer }
+        size: { type: integer, format: int64 }
+        media_info: { type: object, additionalProperties: true }
+    RssFeed:
+      type: object
+      properties:
+        id: { type: string }
+        url: { type: string }
+        name: { type: string }
+        filter: { type: string }
+        enabled: { type: boolean }
+        criteria: { type: object, additionalProperties: true }
+    Plan:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        monthly_price_cents: { type: integer }
+        yearly_price_cents: { type: integer }
+        lifetime_price_cents: { type: integer }
+        max_concurrent_jobs: { type: integer }
+        max_torrent_bytes: { type: integer, format: int64 }
+        cached_streams: { type: integer }
+        seed_slots: { type: integer }
+        features: { type: array, items: { type: string } }
+        system_usenet: { type: boolean }
+    RDUser:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        username: { type: string }
+        email: { type: string }
+        type: { type: string }
+        premium: { type: integer, description: Seconds remaining. }
+        expiration: { type: string, format: date-time }
+    RDTorrent:
+      type: object
+      properties:
+        id: { type: string }
+        filename: { type: string }
+        hash: { type: string }
+        bytes: { type: integer, format: int64 }
+        host: { type: string }
+        progress: { type: number }
+        status:
+          type: string
+          enum: [magnet_conversion, queued, downloading, uploading, downloaded, error]
+        added: { type: string, format: date-time }
+        links: { type: array, items: { type: string } }
+    RDTorrentInfo:
+      allOf:
+        - $ref: "#/components/schemas/RDTorrent"
+        - type: object
+          properties:
+            original_filename: { type: string }
+            original_bytes: { type: integer, format: int64 }
+            files:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: { type: integer }
+                  path: { type: string }
+                  bytes: { type: integer, format: int64 }
+                  selected: { type: integer, enum: [0, 1] }
+    RDUnrestrict:
+      type: object
+      properties:
+        id: { type: string }
+        filename: { type: string }
+        mimeType: { type: string }
+        filesize: { type: integer }
+        link: { type: string }
+        host: { type: string }
+        download: { type: string, description: "Signed HTTPS URL, valid 24h." }
+        streamable: { type: integer, enum: [0, 1] }
+    StMagnet:
+      type: object
+      properties:
+        id: { type: string }
+        hash: { type: string }
+        name: { type: string }
+        status: { type: string, enum: [queued, downloading, downloaded, failed] }
+        size: { type: integer, format: int64 }
+        added_at: { type: string, format: date-time }
+        files:
+          type: array
+          items:
+            type: object
+            properties:
+              index: { type: integer }
+              name: { type: string }
+              path: { type: string }
+              size: { type: integer, format: int64 }
+              link: { type: string }
+    StMagnetCheck:
+      type: object
+      properties:
+        hash: { type: string }
+        magnet: { type: string }
+        status: { type: string, enum: [cached, acceleratable, unknown] }
+        files: { type: array, items: { type: object, additionalProperties: true } }
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+    RDError:
+      type: object
+      properties:
+        error: { type: string }
+        error_code: { type: integer }
+    StoreError:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: integer }
+            message: { type: string }

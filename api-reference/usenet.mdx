@@ -1,0 +1,42 @@
+---
+title: "Usenet"
+description: "Add a Usenet provider and indexer, search, and grab."
+---
+
+Torrin can pull from Usenet as well as torrents. You attach a **provider** (the NNTP server
+that serves the bytes) and an **indexer** (the Newznab-compatible search that finds releases),
+then search and grab — the result becomes a normal job and streams like anything else.
+
+## Two pieces
+
+| Piece | What it is | Endpoint |
+| --- | --- | --- |
+| **Provider** | Your Usenet server (host, port, login, connection count). Serves the actual data. | `/api/usenet/credentials` |
+| **Indexer** | A Newznab-compatible indexer (URL + API key). Finds releases to grab. | `/api/usenet/indexer` |
+
+Each has `GET` (status), `POST` (set), `DELETE` (remove), and a test call
+(`POST /api/usenet/test`, `POST /api/usenet/indexer/test`) to verify credentials before saving.
+
+## Search and grab
+
+Once both are set:
+
+```bash
+# search the indexer
+curl "https://api.torrin.app/api/usenet/search?imdb=tt1234567" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+
+# grab a result → it becomes a job
+curl -X POST https://api.torrin.app/api/usenet/grab \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "id": "RESULT_ID", "title": "..." }'
+```
+
+You can also skip the indexer and upload an `.nzb` file directly to
+[`POST /api/jobs/nzb`](/api-reference/jobs/add-an-nzb).
+
+<Note>
+A grab returns a `202` with a job — poll `GET /api/jobs/{id}` until it's `complete`, then
+stream it exactly like a torrent.
+</Note>

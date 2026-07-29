@@ -1,0 +1,42 @@
+---
+title: "Bring your own key (BYOK)"
+description: "Add your own RealDebrid, AllDebrid, Premiumize, or TorBox key."
+---
+
+Torrin can download through its own shared debrid pool, but you can also attach your own
+provider keys. When you do, torrin checks and pulls through **your** key first, falling back
+to the shared pool — so you get your provider's cache and limits, not just torrin's.
+
+## Why
+
+- **Your cache, your limits.** Availability checks and downloads use your account, so a title
+  cached on your RealDebrid is instant for you even if torrin has never seen it.
+- **More providers.** Add Premiumize or TorBox and torrin's availability check
+  (`/v0/store/magnets/check`) fans out across all of them.
+
+## The endpoints
+
+Each provider has the same three calls, under its own prefix
+(`/api/rd`, `/api/alldebrid`, `/api/premiumize`, `/api/torbox`):
+
+| Call | Does |
+| --- | --- |
+| `GET /api/{provider}/credentials` | Report whether a key is set (returns it **masked**). |
+| `POST /api/{provider}/credentials` | Validate and save a key. A bad key is rejected with `400`. |
+| `DELETE /api/{provider}/credentials` | Remove the key. |
+
+Set a key:
+
+```bash
+curl -X POST https://api.torrin.app/api/rd/credentials \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "api_key": "YOUR_REALDEBRID_KEY" }'
+```
+
+`GET /api/debrid/usage` reports which providers are configured and how they've been used.
+
+<Note>
+Keys are stored encrypted at rest and only ever returned masked. Removing a key takes effect
+immediately — the next request falls back to torrin's shared pool.
+</Note>

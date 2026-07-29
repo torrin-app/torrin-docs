@@ -1,0 +1,52 @@
+---
+title: "Bring your own storage (BYOS)"
+description: "Stream from your own cloud — S3 or an rclone remote."
+---
+
+By default torrin caches content in its own shared store and evicts it over time. With
+**bring-your-own-storage**, content you stream is also written to *your* cloud, encrypted,
+and served back through torrin — so it's permanent, private, and counts against your space,
+not torrin's.
+
+## How it works
+
+When BYOS is connected, a completed stream is copied to your backend under an encrypted
+key (torrin never stores your filenames in the clear). Playback still goes through torrin's
+signed, geo-routed URLs, so the origin and your credentials stay hidden — the client can't
+tell BYOS content from shared-cache content.
+
+## Connecting
+
+Two shapes, depending on the backend:
+
+- **S3-compatible** (S3, Backblaze, Wasabi, Garage...) — pass the endpoint and keys directly:
+
+  ```bash
+  curl -X POST https://api.torrin.app/api/storage/connect \
+    -H "Authorization: Bearer YOUR_API_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "provider": "s3",
+      "endpoint": "https://s3.example.com",
+      "region": "us-east-1",
+      "bucket": "my-torrin",
+      "access_key": "...",
+      "secret_key": "..."
+    }'
+  ```
+
+- **OAuth backends** (Google Drive, Dropbox, OneDrive, pCloud) — start the consent flow at
+  `GET /api/storage/oauth/{provider}/start` and torrin finishes the connection on callback.
+
+## Managing it
+
+| Call | Does |
+| --- | --- |
+| `GET /api/storage` | Whether BYOS is connected. |
+| `POST /api/storage/connect` | Connect a backend. |
+| `DELETE /api/storage` | Disconnect. Existing content stays in your cloud. |
+
+<Note>
+Everything written to your storage is encrypted with a key torrin holds, so a raw browse of
+your bucket shows opaque blobs, not media.
+</Note>

@@ -1,0 +1,124 @@
+---
+title: "How the API works"
+description: "Torrin's model — jobs, the shared cache, and signed streams — and how the two API dialects map onto it."
+---
+
+Under the RealDebrid-shaped responses, torrin is not a debrid reseller — it downloads
+on its own box behind a VPN, caches the result, and hands you a signed HTTPS stream.
+Understanding that model makes the endpoints obvious.
+
+## The lifecycle
+
+Every source you add — a magnet, a hash, a release link — becomes a **job**. A job moves
+through a handful of states, and what you get back depends on where it is:
+
+```
+add magnet/hash
+      │
+   cached in torrin's shared store?
+      │
+      ├── yes ──> job is "downloaded" immediately ──> links are ready
+      │
+      └── no ───> job downloads on the box (behind a VPN)
+                        │  pending → downloading → uploading → downloaded
+                        │
+                        └── once downloaded ──> cached for everyone ──> links ready
+```
+
+- **Cached hits are instant.** The bytes are already on disk, so the job is created as
+  `downloaded` and its `links` are populated on the same call.
+- **Misses download server-side.** You poll the torrent until its status is `downloaded`,
+  then unrestrict a link. No local torrent client, no seeding, no waiting on your own bandwidth.
+- **The cache is shared.** Once anyone downloads a title, it's cached for every user — which
+  is why the [availability check](#instant-availability) matters before you add.
+
+## Two dialects, one engine
+
+Torrin exposes the *same* jobs through two API shapes. Pick the one your client speaks —
+they sit on the same cache and the same downloads.
+
+| | `/rest/1.0` | `/v0/store` |
+|---|---|---|
+| **Speaks** | RealDebrid API | StremThru store API |
+| **Use it for** | Stremio RD addons, RD-compatible clients, direct integration | StremThru clients like Comet |
+| **Auth header** | `Authorization: Bearer <key>` | `X-StremThru-Store-Authorization: Bearer <key>` |
+| **Add a source** | `POST /torrents/addMagnet` (form) | `POST /magnets` (JSON) |
+| **Availability** | `GET /torrents/instantAvailability/{hashes}` | `GET /magnets/check` |
+| **Play a file** | `POST /unrestrict/link` | the file's `link` (already playable) |
+
+If you're integrating from scratch, use `/rest/1.0` — it's the most widely supported shape
+and every RD tutorial applies.
+
+## Instant availability
+
+Before adding a magnet, ask whether it's already cached. This is the cheapest call in the
+API and it decides whether playback is instant or a download:
+
+- `/rest/1.0/torrents/instantAvailability/{hashes}` returns a key for **every** hash you
+  asked about — a `rd` array when cached, or an empty `{}` when it isn't. Key *presence* is
+  not enough; check that the `rd` array is non-empty.
+- `/v0/store/magnets/check` is richer. Each item is one of:
+
+| Status | Meaning |
+|---|---|
+| `cached` | Streamable right now from torrin's shared store. `files` are populated. |
+| `acceleratable` | Not in the shared store, but reachable via a connected provider (system AD/RD or your own key) and can be pulled quickly. |
+| `unknown` | Not available. Adding it starts a fresh download. |
+
+## Streaming
+
+A torrent's `links` are `torrin://` references, not URLs. To play one, **unrestrict** it:
+
+```bash
+curl -X POST https://api.torrin.app/rest/1.0/unrestrict/link \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  --data-urlencode "link=torrin://blobs/b_afb2a849"
+```
+
+You get back a `download` URL: a **signed HTTPS link valid for 24 hours**, served from the
+nearest cache node with the origin IP hidden. It supports range requests, so players can
+seek. (StremThru `files[].link` is already this signed URL — no unrestrict step.)
+
+<Note>
+Torrin doesn't know a file's exact byte size until it's read, so `unrestrict` returns
+`filesize: 0`. Take the real size from the torrent's file entry (`files[].bytes`) instead.
+</Note>
+
+## A typical flow
+
+Adding a magnet and playing the biggest file, end to end:
+
+<Steps>
+  <Step title="Check if it's cached">
+    `GET /rest/1.0/torrents/instantAvailability/{hash}` — if the `rd` array is non-empty,
+    playback will be instant.
+  </Step>
+  <Step title="Add it">
+    `POST /rest/1.0/torrents/addMagnet` with the magnet. You get back an `id`.
+  </Step>
+  <Step title="Wait for it (only on a cache miss)">
+    Poll `GET /rest/1.0/torrents/info/{id}` until `status` is `downloaded`. A cached add is
+    already `downloaded`.
+  </Step>
+  <Step title="Play">
+    Pick a `link` from the torrent, `POST /rest/1.0/unrestrict/link`, and open the returned
+    `download` URL.
+  </Step>
+</Steps>
+
+## Job statuses
+
+The RealDebrid `status` field is torrin's internal job state, mapped to RD's vocabulary:
+
+| Torrin state | RD `status` | Meaning |
+|---|---|---|
+| pending | `magnet_conversion` | Accepted, resolving the magnet. |
+| queued | `queued` | Waiting for a download slot. |
+| downloading / processing | `downloading` | Fetching + unpacking on the box. |
+| publishing | `uploading` | Writing the finished media to the cache. |
+| complete / seeding | `downloaded` | Cached and ready — `links` are populated. |
+| failed | `error` | The download failed. |
+
+Your plan's concurrency limit applies to jobs that are actively downloading; cached adds
+don't consume a slot. Hitting the limit returns `503` (RD) / `429` (store) with a
+`slot limit reached` message.

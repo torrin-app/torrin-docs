@@ -1,0 +1,55 @@
+---
+title: "Authentication"
+description: "How to get and use your torrin API key."
+---
+
+Every torrent and store endpoint is authenticated with your instance **API key** — the
+same key your Stremio addon and dashboard use. Public `/api/*` endpoints need no auth.
+
+## Get your API key
+
+Your API key is issued when your account is created. On the hosted instance it's shown in
+the dashboard; you can also create an account directly:
+
+```bash
+curl -X POST https://api.torrin.app/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "you@example.com" }'
+```
+
+```json
+{ "api_key": "YOUR_API_KEY", "email": "you@example.com", "plan": "free" }
+```
+
+<Warning>
+Treat the key like a password — it grants full access to your account. If it leaks,
+rotate it from the dashboard.
+</Warning>
+
+## Use it
+
+Send the key as a bearer token on every authenticated request:
+
+```bash
+curl https://api.torrin.app/rest/1.0/torrents \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+For compatibility, two surfaces also accept alternate forms:
+
+| Surface | Also accepts |
+| --- | --- |
+| `/rest/1.0/*` | `?auth_token=YOUR_API_KEY` query parameter |
+| `/v0/store/*` | `X-StremThru-Store-Authorization: Bearer YOUR_API_KEY` header |
+
+## Errors
+
+| Status | Meaning |
+| --- | --- |
+| `401` | Missing or invalid key. |
+| `403` | The subscription is paused or expired — resume or renew, then retry. |
+
+<Note>
+Both error shapes differ by surface: `/rest/1.0` returns `{ "error": "...", "error_code": 8 }`,
+and `/v0/store` returns `{ "error": { "code": 401, "message": "..." } }`.
+</Note>
