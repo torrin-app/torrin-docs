@@ -70,3 +70,19 @@ Only needed if users will connect a cloud provider. See [BYOS](/self-hosting/byo
 |---|---|---|
 | `RATE_LIMIT_RPS` | `30` | Per-key requests/sec; `0` disables. |
 | `RATE_LIMIT_BURST` | `60` | Burst allowance. |
+
+## Transcoding (optional)
+
+On-demand transcoding lets incompatible files (4K, HEVC, 10-bit, HDR, surround audio) play on
+weak devices or connections. It runs a companion service, a fork of
+[go-transcode](https://github.com/torrin-app/go-transcode), that reads decrypted content from
+the stream service and re-encodes it into an adaptive H.264/AAC HLS ladder on the fly. HDR is
+auto-detected and tone-mapped to SDR. Encoding is CPU-heavy for 4K HDR; the fork ships a GPU
+(NVENC) image that removes the limit.
+
+| Variable | Description |
+|---|---|
+| `TORRIN_TRANSCODE_URL` | Public base URL of the transcode service, e.g. `https://transcode.example.com`. Empty (default) disables the feature. |
+| `TORRIN_TRANSCODE_SRC_BASE` | How the transcode service reaches the stream service internally, e.g. `http://stream:8084`. |
+
+It is gated to the Pro plan and opt-in per user, via a toggle in the Stremio addon config.
