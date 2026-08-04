@@ -42,9 +42,32 @@ Two shapes, depending on the backend:
 
 | Call | Does |
 | --- | --- |
-| `GET /api/storage` | Whether BYOS is connected. |
-| `POST /api/storage/connect` | Connect a backend. |
+| `GET /api/storage` | Whether BYOS is connected, plus the provider count and pool policy. |
+| `POST /api/storage/connect` | Connect the primary backend. |
 | `DELETE /api/storage` | Disconnect. Existing content stays in your cloud. |
+| `PUT /api/storage/providers` | Add providers to the pool and set the policy (`epmfs` pool or `all` mirror). |
+| `DELETE /api/storage/providers/{idx}` | Remove one provider from the pool. |
+| `GET /api/storage/rclone-config` | Download your `rclone.conf` to mount the storage yourself. |
+| `PUT /api/storage/evict-policy` | Set cleanup rules: `evict_after_days`, `evict_max_gb` (0 = keep everything). |
+| `POST /api/storage/evict` | Remove one release (`info_hash`) from your storage. |
+
+## Pooling and mirroring
+
+Add more providers to act as one encrypted pool. `union_policy` picks placement:
+`epmfs` (default) spreads files across providers by free space; `all` mirrors every
+file to every provider for redundancy.
+
+```bash
+curl -X PUT https://api.torrin.app/api/storage/providers \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "union_policy": "all",
+    "providers": [
+      { "endpoint": "https://s3.example.com", "bucket": "backup", "access_key": "...", "secret_key": "..." }
+    ]
+  }'
+```
 
 <Note>
 Everything written to your storage is encrypted with a key torrin holds, so a raw browse of

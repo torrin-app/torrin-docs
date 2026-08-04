@@ -32,6 +32,7 @@ The cache location is a volume mount, not an env var. See [Storage](/self-hostin
 | `BUDGET_MAX_BYTES` | `1000000000000` | Cap on in-flight (downloading) bytes. |
 | `EVICTION_CAP_BYTES` | `300000000000` | Soft cap on the cache; oldest content is evicted past it. |
 | `EVICTION_HOUR` | `4` | Hour of day the eviction sweep runs. |
+| `BYOS_EVICT_HOUR` | `5` | Hour of day the [BYOS](/self-hosting/byos) cleanup sweep runs (only for users who set cleanup rules). |
 
 ## Debrid (optional)
 

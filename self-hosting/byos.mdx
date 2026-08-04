@@ -10,8 +10,9 @@ provider only ever sees scrambled files.
 
 ## Supported providers
 
-Google Drive, Dropbox, OneDrive, and pCloud via OAuth, plus any S3-compatible
-bucket via keys.
+Google Drive, Dropbox, OneDrive, and pCloud via OAuth; Mega, PikPak, and Gofile
+via account login; any S3-compatible bucket (S3, Backblaze B2, Wasabi, R2) via
+keys; and anything else rclone supports by pasting an rclone remote config.
 
 ## Enabling OAuth providers
 
@@ -33,7 +34,28 @@ endpoint, bucket, and keys in settings.
 
 Once a provider is configured, a user connects their storage in the app's
 settings. New downloads are encrypted and written to their provider, and
-playback streams back from it — geo-routed and decrypted on the fly.
+playback streams back from it, geo-routed and decrypted on the fly.
+
+## Pooling multiple providers
+
+Several providers can act as one encrypted pool. Add extra providers in
+settings, then choose how files are placed:
+
+- **Pool** (default): each file goes to whichever provider has the most free space, so usable space is the sum of all providers.
+- **Mirror**: every file is written to all providers for redundancy (uses Nx the space).
+
+## Exporting your config
+
+Since everything is encrypted with your own key, you can download a ready-made
+`rclone.conf` from settings and mount your storage yourself, independent of the
+server. Keep it private: it holds your keys and encryption passphrase.
+
+## Cleanup
+
+Content on your storage stays until you remove it. You can remove a single
+release from the app, or set optional rules to auto-clean by age (remove after N
+idle days) or size (keep under N GB). The sweep runs daily; see `BYOS_EVICT_HOUR`
+in [Configuration](/self-hosting/configuration).
 
 <Note>
 Content on your own storage is **not** subject to the shared-cache eviction; it
