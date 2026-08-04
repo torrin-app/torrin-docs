@@ -650,6 +650,108 @@ paths:
       responses:
         "307": { description: Redirect to the provider's consent screen. }
 
+  /api/storage/providers:
+    put:
+      tags: [Storage]
+      summary: Set storage pool
+      description: |
+        Add providers to the storage pool and set placement. Submitted providers are merged
+        into the existing pool. `union_policy` is `epmfs` (spread by free space) or `all` (mirror).
+      operationId: setStorageProviders
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                union_policy: { type: string, enum: [epmfs, all] }
+                providers:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      provider: { type: string, description: "s3, mega, pikpak, gofile, or rclone_config." }
+                      endpoint: { type: string }
+                      region: { type: string }
+                      bucket: { type: string }
+                      access_key: { type: string }
+                      secret_key: { type: string }
+                      user: { type: string }
+                      pass: { type: string }
+                      token: { type: string }
+                      config: { type: string }
+      responses:
+        "200": { $ref: "#/components/responses/StatusOk" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  /api/storage/providers/{idx}:
+    delete:
+      tags: [Storage]
+      summary: Remove pool provider
+      description: Remove one provider from the pool by its index (0-based over the added providers).
+      operationId: removeStorageProvider
+      parameters:
+        - { name: idx, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200": { $ref: "#/components/responses/StatusOk" }
+        "404": { description: Provider not found. }
+
+  /api/storage/rclone-config:
+    get:
+      tags: [Storage]
+      summary: Export rclone config
+      description: |
+        Download an rclone.conf for your storage so you can mount it yourself. Holds your
+        access keys and encryption passphrase, so keep it private.
+      operationId: exportRcloneConfig
+      responses:
+        "200":
+          description: The rclone config file.
+          content:
+            text/plain: { schema: { type: string } }
+        "404": { description: No storage configured. }
+
+  /api/storage/evict-policy:
+    put:
+      tags: [Storage]
+      summary: Set storage cleanup rules
+      description: Auto-clean your own storage by age or size. 0 disables a rule.
+      operationId: setStorageEvictPolicy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                evict_after_days: { type: integer, description: "Remove content idle for this many days." }
+                evict_max_gb: { type: number, description: "Keep your storage under this many GB." }
+      responses:
+        "200": { $ref: "#/components/responses/StatusOk" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  /api/storage/evict:
+    post:
+      tags: [Storage]
+      summary: Remove content from your storage
+      description: |
+        Remove one release from your storage. It stays in your library and is served from the
+        shared cache if still available.
+      operationId: evictOwnStorage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [info_hash]
+              properties:
+                info_hash: { type: string }
+      responses:
+        "200": { $ref: "#/components/responses/StatusOk" }
+        "404": { description: Not in your library. }
+
   # ---------------- Usenet ----------------
   /api/usenet/credentials:
     get:

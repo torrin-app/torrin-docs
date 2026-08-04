@@ -126,6 +126,11 @@
               "GET /api/storage",
               "DELETE /api/storage",
               "POST /api/storage/connect",
+              "PUT /api/storage/providers",
+              "DELETE /api/storage/providers/{idx}",
+              "GET /api/storage/rclone-config",
+              "PUT /api/storage/evict-policy",
+              "POST /api/storage/evict",
               "GET /api/storage/oauth/{provider}/start"
             ]
           },
