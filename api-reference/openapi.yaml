@@ -40,6 +40,10 @@ tags:
     description: Bring your own storage to stream from your own cloud (BYOS).
   - name: Usenet
     description: Usenet provider, indexer, search, and grabs.
+  - name: Telegram
+    description: Link the account to the Telegram bot.
+  - name: Billing
+    description: Checkouts and code redemption.
   - name: Cairn
     description: Permanent Usenet-backed archive of cached content.
   - name: RSS
@@ -602,6 +606,39 @@ paths:
                 type: object
                 properties:
                   connected: { type: boolean }
+    post:
+      tags: [Storage]
+      summary: Configure storage (S3-style)
+      description: Set the primary BYOS credentials directly (S3-compatible bucket, or an rclone backend). For pasting a full rclone config block, use `/api/storage/connect` instead.
+      operationId: setStorage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bucket]
+              properties:
+                provider: { type: string }
+                endpoint: { type: string, description: S3 endpoint (or set `backend` for an rclone kind). }
+                region: { type: string }
+                bucket: { type: string }
+                access_key: { type: string }
+                secret_key: { type: string }
+                prefix: { type: string }
+                backend: { type: string }
+                encrypted: { type: boolean }
+                union_policy: { type: string }
+                evict_after_days: { type: integer }
+                evict_max_bytes: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema: { type: object, properties: { configured: { type: boolean, example: true } } }
+        "400": { description: bucket and endpoint (or backend) required. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
     delete:
       tags: [Storage]
       summary: Disconnect storage
@@ -1390,6 +1427,547 @@ paths:
                 properties:
                   current: { type: object, additionalProperties: true }
                   history: { type: array, items: { type: object, additionalProperties: true } }
+
+  # ---------------- Usenet indexers (multi-indexer) ----------------
+  /api/usenet/indexers:
+    get:
+      tags: [Usenet]
+      summary: List your Usenet indexers
+      operationId: listIndexers
+      responses:
+        "200":
+          description: Your configured Newznab indexers (api keys omitted).
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    label: { type: string }
+                    url: { type: string }
+                    enabled: { type: boolean }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [Usenet]
+      summary: Add a Usenet indexer
+      description: Add a Newznab indexer (paid plans only). Up to 8 per account.
+      operationId: addIndexer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url, api_key]
+              properties:
+                label: { type: string }
+                url: { type: string, description: Newznab base URL. }
+                api_key: { type: string }
+      responses:
+        "201":
+          description: The created indexer (api key omitted).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string }
+                  label: { type: string }
+                  url: { type: string }
+                  enabled: { type: boolean }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { description: Bring-your-own usenet requires a paid plan. }
+        "422": { description: Indexer limit reached (max 8). }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/usenet/indexers/test:
+    post:
+      tags: [Usenet]
+      summary: Test a Usenet indexer
+      description: Validates and live-tests an indexer config before saving.
+      operationId: testIndexer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url, api_key]
+              properties:
+                url: { type: string }
+                api_key: { type: string }
+      responses:
+        "200":
+          description: The indexer responded.
+          content:
+            application/json:
+              schema: { type: object, properties: { ok: { type: boolean, example: true } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "502": { description: Indexer connection failed. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/usenet/indexers/{id}:
+    put:
+      tags: [Usenet]
+      summary: Edit a Usenet indexer
+      operationId: editIndexer
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                label: { type: string }
+                url: { type: string }
+                api_key: { type: string, description: Leave empty to keep the existing key. }
+      responses:
+        "200": { $ref: "#/components/responses/StatusOk" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    delete:
+      tags: [Usenet]
+      summary: Delete a Usenet indexer
+      operationId: deleteIndexer
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { $ref: "#/components/responses/StatusOk" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/usenet/indexers/{id}/toggle:
+    post:
+      tags: [Usenet]
+      summary: Enable or disable a Usenet indexer
+      operationId: toggleIndexer
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, properties: { enabled: { type: boolean } } }
+      responses:
+        "200": { $ref: "#/components/responses/StatusOk" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/usenet/system-indexer:
+    get:
+      tags: [Usenet]
+      summary: Built-in indexer state
+      description: The built-in Torrin indexer's availability (needs Standard/Pro) and on/off state.
+      operationId: getSystemIndexer
+      responses:
+        "200":
+          description: Availability and state.
+          content:
+            application/json:
+              schema: { type: object, properties: { available: { type: boolean }, enabled: { type: boolean } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/usenet/system-indexer/toggle:
+    post:
+      tags: [Usenet]
+      summary: Toggle the built-in indexer
+      operationId: toggleSystemIndexer
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, properties: { enabled: { type: boolean } } }
+      responses:
+        "200": { $ref: "#/components/responses/StatusOk" }
+        "403": { description: The built-in indexer requires a Standard or Pro plan. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ---------------- Debrid library & import ----------------
+  /api/{provider}/library:
+    get:
+      tags: [Search & availability]
+      summary: Browse your debrid library
+      description: Paginated view of your existing library on a debrid provider (20 per page). Paid plans only.
+      operationId: debridLibrary
+      parameters:
+        - { name: provider, in: path, required: true, schema: { type: string, enum: [rd, torbox, alldebrid] } }
+        - { name: page, in: query, required: false, schema: { type: integer, default: 1 } }
+      responses:
+        "200":
+          description: One page of library items.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  page: { type: integer }
+                  count: { type: integer, description: Total items across all pages. }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        hash: { type: string }
+                        filename: { type: string }
+                        bytes: { type: integer, format: int64 }
+                        status: { type: string, example: ready }
+                        cached: { type: boolean, description: Already in Torrin's cache. }
+        "400": { description: No provider key configured. }
+        "403": { description: Debrid library access requires a paid plan. }
+        "502": { description: Could not load your library. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/{provider}/import:
+    post:
+      tags: [Jobs]
+      summary: Import hashes from your debrid library
+      description: Bulk-import provider hashes as Torrin download jobs. Paid plans only. Partial failures are reported in `errors`, not the status code.
+      operationId: debridImport
+      parameters:
+        - { name: provider, in: path, required: true, schema: { type: string, enum: [rd, torbox, alldebrid] } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [hashes], properties: { hashes: { type: array, items: { type: string } } } }
+      responses:
+        "200":
+          description: Per-hash result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  created: { type: array, items: { type: string } }
+                  errors: { type: array, items: { type: string } }
+        "400": { description: hashes required. }
+        "403": { description: Library import requires a paid plan. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ---------------- Release sources ----------------
+  /api/hdencode/search:
+    get:
+      tags: [Search & availability]
+      summary: Search HDEncode
+      operationId: hdencodeSearch
+      parameters:
+        - { name: imdb, in: query, required: true, schema: { type: string } }
+        - { name: season, in: query, required: false, schema: { type: integer } }
+        - { name: episode, in: query, required: false, schema: { type: integer } }
+        - { name: title, in: query, required: false, schema: { type: string } }
+      responses:
+        "200":
+          description: Matching release links.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    title: { type: string }
+                    size: { type: string }
+                    post_url: { type: string }
+                    info_hash: { type: string }
+        "400": { description: imdb required. }
+        "502": { description: HDEncode search failed. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/hdencode/grab:
+    post:
+      tags: [Jobs]
+      summary: Grab an HDEncode release
+      description: Starts a download of a chosen HDEncode release. Paid plans only.
+      operationId: hdencodeGrab
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [post_url], properties: { post_url: { type: string }, title: { type: string } } }
+      responses:
+        "200":
+          description: Cached or already-queued job.
+          content: { application/json: { schema: { $ref: "#/components/schemas/Job" } } }
+        "202":
+          description: New download queued.
+          content: { application/json: { schema: { $ref: "#/components/schemas/Job" } } }
+        "400": { description: post_url required. }
+        "403": { description: HDEncode requires a paid plan, or content blocked by safety policy. }
+        "429": { $ref: "#/components/responses/SlotLimit" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/scenerls/search:
+    get:
+      tags: [Search & availability]
+      summary: Search scene-rls
+      operationId: scenerlsSearch
+      parameters:
+        - { name: title, in: query, required: true, schema: { type: string } }
+        - { name: year, in: query, required: false, schema: { type: integer } }
+        - { name: season, in: query, required: false, schema: { type: integer } }
+        - { name: episode, in: query, required: false, schema: { type: integer } }
+      responses:
+        "200":
+          description: Matching release links.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    title: { type: string }
+                    size: { type: string }
+                    post_url: { type: string }
+                    info_hash: { type: string }
+        "400": { description: title required. }
+        "502": { description: scene-rls search failed. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/scenerls/grab:
+    post:
+      tags: [Jobs]
+      summary: Grab a scene-rls release
+      description: Starts a download of a chosen scene-rls release. Paid plans only.
+      operationId: scenerlsGrab
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [post_url], properties: { post_url: { type: string }, title: { type: string } } }
+      responses:
+        "200":
+          description: Cached or already-queued job.
+          content: { application/json: { schema: { $ref: "#/components/schemas/Job" } } }
+        "202":
+          description: New download queued.
+          content: { application/json: { schema: { $ref: "#/components/schemas/Job" } } }
+        "400": { description: post_url required. }
+        "403": { description: scene-rls requires a paid plan, or content blocked by safety policy. }
+        "429": { $ref: "#/components/responses/SlotLimit" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ---------------- Telegram ----------------
+  /api/telegram/status:
+    get:
+      tags: [Telegram]
+      summary: Telegram link status
+      operationId: telegramStatus
+      responses:
+        "200":
+          description: Whether the account is linked.
+          content:
+            application/json:
+              schema: { type: object, properties: { linked: { type: boolean }, tg_user_id: { type: integer, format: int64 } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/telegram/link-code:
+    post:
+      tags: [Telegram]
+      summary: Generate a Telegram link code
+      description: Returns a short-lived code (15 min) to link the account from the Telegram bot.
+      operationId: telegramLinkCode
+      responses:
+        "200":
+          description: A link code and deeplink.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: string }
+                  expires_in: { type: integer, example: 900 }
+                  bot: { type: string }
+                  deeplink: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/telegram/link:
+    delete:
+      tags: [Telegram]
+      summary: Unlink Telegram
+      operationId: telegramUnlink
+      responses:
+        "200":
+          description: Unlinked.
+          content:
+            application/json:
+              schema: { type: object, properties: { linked: { type: boolean, example: false } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ---------------- Billing ----------------
+  /api/billing/crypto/checkout:
+    post:
+      tags: [Billing]
+      summary: Start a crypto checkout
+      description: Creates a Bitcart invoice; poll the returned invoice id for payment status.
+      operationId: cryptoCheckout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [period]
+              properties:
+                plan: { type: string, description: "Plan id: starter, standard, or pro." }
+                period: { type: string, enum: [monthly, yearly, lifetime, days] }
+                days: { type: integer, description: Only for period=days. }
+      responses:
+        "200":
+          description: The invoice id.
+          content:
+            application/json:
+              schema: { type: object, properties: { invoice_id: { type: string } } }
+        "400": { description: Invalid period. }
+        "503": { description: Crypto payments not available. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/billing/bachs/checkout:
+    post:
+      tags: [Billing]
+      summary: Start a card checkout
+      description: Creates a Bachs hosted checkout and returns its URL.
+      operationId: bachsCheckout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [period]
+              properties:
+                plan: { type: string }
+                period: { type: string, enum: [monthly, yearly, lifetime, days] }
+                days: { type: integer }
+      responses:
+        "200":
+          description: The checkout URL.
+          content:
+            application/json:
+              schema: { type: object, properties: { checkout_url: { type: string } } }
+        "400": { description: Invalid period. }
+        "503": { description: Card payments not available. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/redeem:
+    post:
+      tags: [Billing]
+      summary: Redeem a code
+      description: Redeem a reseller/gift code to activate a plan.
+      operationId: redeemCode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [code], properties: { code: { type: string } } }
+      responses:
+        "200":
+          description: The activated plan.
+          content:
+            application/json:
+              schema: { type: object, properties: { plan_id: { type: string }, expires_at: { type: string, format: date-time } } }
+        "400": { description: Invalid or missing code. }
+        "409": { description: This code has already been used. }
+        "429": { description: Too many attempts, slow down. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ---------------- Torrent upload ----------------
+  /api/torrents/upload:
+    post:
+      tags: [Jobs]
+      summary: Upload a .torrent file
+      description: Upload a .torrent (multipart field `torrent`, max 5 MiB) to start a download or a private-tracker seed.
+      operationId: uploadTorrent
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [torrent]
+              properties: { torrent: { type: string, format: binary } }
+      responses:
+        "200":
+          description: An existing matching job.
+          content: { application/json: { schema: { $ref: "#/components/schemas/Job" } } }
+        "202":
+          description: A new job was created.
+          content: { application/json: { schema: { $ref: "#/components/schemas/Job" } } }
+        "400": { description: Missing or invalid torrent file. }
+        "413": { description: Torrent exceeds your plan size limit. }
+        "429": { $ref: "#/components/responses/SlotLimit" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ---------------- Referral & stats ----------------
+  /api/referral:
+    get:
+      tags: [Account]
+      summary: Referral code and stats
+      operationId: getReferral
+      responses:
+        "200":
+          description: The user's referral code and stats.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: string }
+                  total: { type: integer }
+                  paying: { type: integer }
+                  credit_days: { type: integer }
+                  days_per_referral: { type: integer }
+                  max_days: { type: integer }
+                  referral_link: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/stats:
+    get:
+      tags: [Account]
+      summary: Your usage stats
+      operationId: getStats
+      responses:
+        "200":
+          description: Usage stats, plan, and limits.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stats:
+                    type: object
+                    properties:
+                      total_downloads: { type: integer }
+                      active_jobs: { type: integer }
+                      completed_jobs: { type: integer }
+                      failed_jobs: { type: integer }
+                      total_bytes: { type: integer, format: int64 }
+                      total_accesses: { type: integer, format: int64 }
+                  plan: { $ref: "#/components/schemas/Plan" }
+                  limits:
+                    type: object
+                    properties:
+                      max_concurrent: { type: integer }
+                      max_torrent_bytes: { type: integer, format: int64 }
+                      active_slots: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/wrapped:
+    get:
+      tags: [Account]
+      summary: End-of-month recap
+      description: A year-in-review style recap. Available only in the last 7 days of each month.
+      operationId: getWrapped
+      responses:
+        "200":
+          description: The user's wrapped recap.
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "403": { description: Wrapped drops at the end of the month. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
 
 components:
   securitySchemes:
