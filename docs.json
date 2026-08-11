@@ -70,7 +70,10 @@
               "POST /api/me/resume",
               "GET /api/me/audit",
               "POST /api/auth/regenerate-key",
-              "GET /api/history"
+              "GET /api/history",
+              "GET /api/referral",
+              "GET /api/stats",
+              "GET /api/wrapped"
             ]
           },
           {
@@ -86,7 +89,11 @@
               "POST /api/jobs/{id}/sign",
               "DELETE /api/jobs/{id}",
               "POST /api/jobs/hoster",
-              "POST /api/jobs/nzb"
+              "POST /api/jobs/nzb",
+              "POST /api/torrents/upload",
+              "POST /api/hdencode/grab",
+              "POST /api/scenerls/grab",
+              "POST /api/{provider}/import"
             ]
           },
           {
@@ -97,7 +104,10 @@
               "POST /api/availability",
               "POST /api/scrape",
               "GET /api/usenet/search",
-              "POST /api/usenet/grab"
+              "POST /api/usenet/grab",
+              "GET /api/{provider}/library",
+              "GET /api/hdencode/search",
+              "GET /api/scenerls/search"
             ]
           },
           {
@@ -124,6 +134,7 @@
             "pages": [
               "api-reference/byos",
               "GET /api/storage",
+              "POST /api/storage",
               "DELETE /api/storage",
               "POST /api/storage/connect",
               "PUT /api/storage/providers",
@@ -145,7 +156,15 @@
               "GET /api/usenet/indexer",
               "POST /api/usenet/indexer",
               "DELETE /api/usenet/indexer",
-              "POST /api/usenet/indexer/test"
+              "POST /api/usenet/indexer/test",
+              "GET /api/usenet/indexers",
+              "POST /api/usenet/indexers",
+              "POST /api/usenet/indexers/test",
+              "PUT /api/usenet/indexers/{id}",
+              "DELETE /api/usenet/indexers/{id}",
+              "POST /api/usenet/indexers/{id}/toggle",
+              "GET /api/usenet/system-indexer",
+              "POST /api/usenet/system-indexer/toggle"
             ]
           },
           {
@@ -167,6 +186,22 @@
               "DELETE /api/rss/feeds/{id}",
               "POST /api/rss/feeds/{id}/toggle",
               "GET /api/rss/tags"
+            ]
+          },
+          {
+            "group": "Telegram",
+            "pages": [
+              "GET /api/telegram/status",
+              "POST /api/telegram/link-code",
+              "DELETE /api/telegram/link"
+            ]
+          },
+          {
+            "group": "Billing",
+            "pages": [
+              "POST /api/billing/crypto/checkout",
+              "POST /api/billing/bachs/checkout",
+              "POST /api/redeem"
             ]
           },
           {
