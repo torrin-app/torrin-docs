@@ -1487,7 +1487,7 @@ paths:
       tags: [Usenet]
       summary: Test a Usenet indexer
       description: Validates and live-tests an indexer config before saving.
-      operationId: testIndexer
+      operationId: testUsenetIndexer
       requestBody:
         required: true
         content:
@@ -1694,7 +1694,7 @@ paths:
           description: New download queued.
           content: { application/json: { schema: { $ref: "#/components/schemas/Job" } } }
         "400": { description: post_url required. }
-        "403": { description: HDEncode requires a paid plan, or content blocked by safety policy. }
+        "403": { description: "HDEncode requires a paid plan, or content blocked by safety policy." }
         "429": { $ref: "#/components/responses/SlotLimit" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
@@ -1745,7 +1745,7 @@ paths:
           description: New download queued.
           content: { application/json: { schema: { $ref: "#/components/schemas/Job" } } }
         "400": { description: post_url required. }
-        "403": { description: scene-rls requires a paid plan, or content blocked by safety policy. }
+        "403": { description: "scene-rls requires a paid plan, or content blocked by safety policy." }
         "429": { $ref: "#/components/responses/SlotLimit" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
@@ -1870,7 +1870,7 @@ paths:
               schema: { type: object, properties: { plan_id: { type: string }, expires_at: { type: string, format: date-time } } }
         "400": { description: Invalid or missing code. }
         "409": { description: This code has already been used. }
-        "429": { description: Too many attempts, slow down. }
+        "429": { description: "Too many attempts, slow down." }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
   # ---------------- Torrent upload ----------------
