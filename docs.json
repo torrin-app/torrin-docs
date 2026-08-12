@@ -79,6 +79,7 @@
           {
             "group": "Jobs",
             "pages": [
+              "POST /api/add",
               "POST /api/jobs",
               "GET /api/jobs",
               "GET /api/jobs/{id}",

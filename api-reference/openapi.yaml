@@ -180,6 +180,51 @@ paths:
               schema: { type: array, items: { type: object, additionalProperties: true } }
 
   # ---------------- Jobs ----------------
+  /api/add:
+    post:
+      tags: [Jobs]
+      summary: Add anything (auto-detected)
+      description: |
+        One endpoint that detects what you send and routes it automatically, so nothing
+        has to pick a type. Send a magnet URI, a 40-char info-hash, or a supported
+        web/file-host URL as the raw request body, or upload a `.torrent` or `.nzb` file
+        as `multipart/form-data`. Cached content returns `200` with a ready job (stream
+        URLs populated); a new download returns `202`.
+      operationId: addJob
+      requestBody:
+        required: true
+        content:
+          text/plain:
+            schema:
+              type: string
+              description: A magnet URI, a 40-char info-hash, or a supported web/file-host URL.
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: A `.torrent` or `.nzb` file.
+      responses:
+        "200":
+          description: Cached, ready to stream.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        "202":
+          description: Accepted, downloading.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403":
+          description: Blocked by the safety policy, or the plan doesn't include this source.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/SlotLimit" }
   /api/jobs:
     post:
       tags: [Jobs]
