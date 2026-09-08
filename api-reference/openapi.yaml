@@ -30,6 +30,10 @@ security:
 tags:
   - name: Account
     description: The authenticated user and account management.
+  - name: Auth
+    description: Login, sessions, two-factor, and API keys.
+  - name: Wallet
+    description: Prepaid balance, top-ups, and buying plans.
   - name: Jobs
     description: The download engine. Add a source, track it, stream the result.
   - name: Search & availability
@@ -54,6 +58,10 @@ tags:
     description: StremThru store API under /v0/store, for clients like Comet.
   - name: Public
     description: Unauthenticated endpoints for signup and instance metadata.
+  - name: WebDAV
+    description: Per-release naming overrides for the WebDAV library.
+  - name: Download client
+    description: qBittorrent- and SABnzbd-compatible endpoints so Sonarr/Radarr can use Torrin as a download client.
 
 paths:
   # ---------------- Account ----------------
@@ -2013,6 +2021,816 @@ paths:
               schema: { type: object, additionalProperties: true }
         "403": { description: Wrapped drops at the end of the month. }
         "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/config:
+    get:
+      tags: [Public]
+      summary: Public instance configuration
+      description: Feature flags and settings the web app reads before login.
+      operationId: getConfig
+      security: []
+      responses:
+        "200":
+          description: Instance config.
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+
+  /api/wrapped/platform:
+    get:
+      tags: [Public]
+      summary: Platform-wide wrapped stats
+      operationId: wrappedPlatform
+      security: []
+      responses:
+        "200":
+          description: Aggregate platform recap.
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in with email and password
+      description: Returns a challenge to complete at /api/auth/login/verify with the emailed or authenticator code.
+      operationId: loginPassword
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        "200":
+          description: A challenge to verify with a second factor.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  challenge: { type: string }
+                  factor: { type: string, enum: [totp, email], description: totp = authenticator app; email = a code was sent to your inbox. }
+        "401": { description: Invalid email or password. }
+
+  /api/auth/login/key:
+    post:
+      tags: [Auth]
+      summary: Log in with an API key
+      operationId: loginKey
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [key]
+              properties:
+                key: { type: string, description: An account API key with sign-in allowed. }
+      responses:
+        "200":
+          description: A session, or a challenge if two-factor is enabled.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session: { type: string }
+                  challenge: { type: string }
+                  factor: { type: string }
+        "401": { description: Invalid key. }
+
+  /api/auth/login/verify:
+    post:
+      tags: [Auth]
+      summary: Complete a login challenge
+      operationId: loginVerify
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [challenge, code]
+              properties:
+                challenge: { type: string }
+                code: { type: string, description: The authenticator or emailed code. }
+      responses:
+        "200":
+          description: A signed session token.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { session: { type: string } }
+        "401": { description: Invalid or expired code. }
+
+  /api/auth/password:
+    post:
+      tags: [Auth]
+      summary: Set or change your password
+      operationId: setPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string, minLength: 8 }
+      responses:
+        "200": { description: Password set. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/auth/2fa/enroll:
+    post:
+      tags: [Auth]
+      summary: Begin two-factor enrollment
+      description: Returns a secret / otpauth URI to add to an authenticator app, then confirm at /api/auth/2fa/confirm.
+      operationId: mfaEnroll
+      responses:
+        "200":
+          description: Enrollment secret.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  secret: { type: string }
+                  otpauth_url: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/auth/2fa/confirm:
+    post:
+      tags: [Auth]
+      summary: Confirm two-factor enrollment
+      operationId: mfaConfirm
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties: { code: { type: string } }
+      responses:
+        "200": { description: Two-factor enabled. }
+        "400": { description: Invalid code. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/auth/2fa/disable:
+    post:
+      tags: [Auth]
+      summary: Disable two-factor
+      operationId: mfaDisable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties: { code: { type: string } }
+      responses:
+        "200": { description: Two-factor disabled. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/auth/2fa/verify:
+    post:
+      tags: [Auth]
+      summary: Verify a two-factor code
+      operationId: mfaVerify
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties: { code: { type: string } }
+      responses:
+        "200":
+          description: A signed session token.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { session: { type: string } }
+        "401": { description: Invalid code. }
+
+  /api/keys:
+    get:
+      tags: [Auth]
+      summary: List API keys
+      operationId: listKeys
+      responses:
+        "200":
+          description: Your API keys (secrets omitted).
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    label: { type: string }
+                    login_allowed: { type: boolean }
+                    created_at: { type: string, format: date-time }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [Auth]
+      summary: Create an API key
+      operationId: createKey
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label: { type: string }
+                login_allowed: { type: boolean, description: "Whether the key may be used to sign in, not just call the API." }
+      responses:
+        "201":
+          description: The new key (its secret is shown once).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string }
+                  key: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/keys/{id}:
+    delete:
+      tags: [Auth]
+      summary: Revoke an API key
+      operationId: revokeKey
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: Revoked. }
+        "404": { description: Key not found. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/wallet:
+    get:
+      tags: [Wallet]
+      summary: Get wallet balance
+      operationId: getWallet
+      responses:
+        "200":
+          description: Your prepaid balance.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  balance: { type: integer, description: Balance in the smallest currency unit. }
+                  currency: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/wallet/topup:
+    post:
+      tags: [Wallet]
+      summary: Top up the wallet
+      description: Starts a checkout to add credit to your balance.
+      operationId: walletTopup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount]
+              properties:
+                amount: { type: integer, description: "Amount to add, in the smallest currency unit." }
+                method: { type: string, description: "Payment rail, e.g. crypto." }
+      responses:
+        "200":
+          description: A checkout to complete the top-up.
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/wallet/buy-plan:
+    post:
+      tags: [Wallet]
+      summary: Buy a plan from wallet balance
+      operationId: walletBuyPlan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [plan_id]
+              properties:
+                plan_id: { type: string }
+                period: { type: string, description: "Billing period, e.g. month, year, lifetime." }
+      responses:
+        "200":
+          description: Plan purchased; new expiry returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plan_id: { type: string }
+                  expires_at: { type: string, format: date-time }
+        "402": { description: Insufficient wallet balance. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/usage/ingest:
+    get:
+      tags: [Account]
+      summary: Monthly ingest usage
+      description: Your uncached ingest this calendar month against your plan's cap.
+      operationId: ingestUsage
+      responses:
+        "200":
+          description: Usage this month.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  used_bytes: { type: integer }
+                  cap_bytes: { type: integer, description: 0 = unlimited. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/usenet/cached:
+    get:
+      tags: [Usenet]
+      summary: Check cached Usenet releases
+      description: Returns already-cached, playable files for a title.
+      operationId: usenetCached
+      parameters:
+        - { name: imdb, in: query, required: true, schema: { type: string }, description: "IMDb id, e.g. tt1234567, optionally tt1234567:1:5 for a season/episode." }
+      responses:
+        "200":
+          description: Cached files (empty if none).
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name: { type: string }
+                    file_name: { type: string }
+                    size: { type: integer }
+                    info_hash: { type: string }
+                    signed_url: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/usenet/providers:
+    get:
+      tags: [Usenet]
+      summary: List your Usenet providers
+      operationId: listProviders
+      responses:
+        "200":
+          description: Configured providers (passwords omitted).
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    host: { type: string }
+                    port: { type: integer }
+                    username: { type: string }
+                    ssl: { type: boolean }
+                    max_conns: { type: integer }
+                    enabled: { type: boolean }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [Usenet]
+      summary: Add a Usenet provider
+      operationId: addProvider
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [host, username, password]
+              properties:
+                host: { type: string }
+                port: { type: integer, default: 563 }
+                username: { type: string }
+                password: { type: string }
+                ssl: { type: boolean, default: true }
+                max_conns: { type: integer }
+      responses:
+        "201":
+          description: The created provider (password omitted).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string }
+                  host: { type: string }
+                  enabled: { type: boolean }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { description: Bring-your-own Usenet requires a paid plan. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/usenet/providers/test:
+    post:
+      tags: [Usenet]
+      summary: Test Usenet provider credentials
+      operationId: testProvider
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [host, username, password]
+              properties:
+                host: { type: string }
+                port: { type: integer }
+                username: { type: string }
+                password: { type: string }
+                ssl: { type: boolean }
+      responses:
+        "200":
+          description: Connection result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { ok: { type: boolean } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/usenet/providers/{id}:
+    put:
+      tags: [Usenet]
+      summary: Update a Usenet provider
+      operationId: editProvider
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                host: { type: string }
+                port: { type: integer }
+                username: { type: string }
+                password: { type: string }
+                ssl: { type: boolean }
+                max_conns: { type: integer }
+      responses:
+        "200": { description: Updated. }
+        "404": { description: Provider not found. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    delete:
+      tags: [Usenet]
+      summary: Delete a Usenet provider
+      operationId: deleteProvider
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: Deleted. }
+        "404": { description: Provider not found. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/usenet/providers/{id}/toggle:
+    post:
+      tags: [Usenet]
+      summary: Enable or disable a Usenet provider
+      operationId: toggleProvider
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: New state.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { enabled: { type: boolean } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /v0/store/newz/check:
+    get:
+      tags: [StremThru store]
+      summary: Check cached NZBs
+      description: StremThru usenet store. torz aliases (/v0/store/torz/*) mirror the magnet store.
+      operationId: checkNewz
+      parameters:
+        - { name: hash, in: query, description: "One or more content hashes (repeatable or comma-separated)." , schema: { type: string } }
+      responses:
+        "200":
+          description: Cached status per hash.
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+
+  /v0/store/newz:
+    get:
+      tags: [StremThru store]
+      summary: List your NZB store items
+      operationId: listNewz
+      responses:
+        "200":
+          description: Your usenet store items.
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+    post:
+      tags: [StremThru store]
+      summary: Add an NZB
+      description: Upload an .nzb file (multipart field "file") or pass JSON with a "link" to fetch.
+      operationId: addNewz
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties: { file: { type: string, format: binary } }
+          application/json:
+            schema:
+              type: object
+              properties: { link: { type: string } }
+      responses:
+        "201":
+          description: The created store item.
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "403": { description: Usenet not enabled on your plan. }
+
+  /v0/store/newz/{id}:
+    get:
+      tags: [StremThru store]
+      summary: Get an NZB store item
+      operationId: getNewz
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The item with playable file links.
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "404": { description: Not found. }
+    delete:
+      tags: [StremThru store]
+      summary: Remove an NZB store item
+      operationId: removeNewz
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: Removed. }
+
+  /v0/store/newz/link/generate:
+    post:
+      tags: [StremThru store]
+      summary: Generate a download link for an NZB store item
+      operationId: generateNewzLink
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [link]
+              properties: { link: { type: string } }
+      responses:
+        "200":
+          description: A usable link.
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+
+  /api/billing/crypto/invoice/{id}:
+    get:
+      tags: [Billing]
+      summary: Get a crypto invoice
+      description: Poll the status of a crypto checkout invoice.
+      operationId: cryptoInvoice
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Invoice status.
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "404": { description: Invoice not found. }
+
+  /api/billing/crypto/invoice/{id}/address:
+    post:
+      tags: [Billing]
+      summary: Get an invoice payment address
+      description: Returns a pay-to address for the chosen coin on a crypto invoice.
+      operationId: cryptoInvoiceAddress
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                coin: { type: string, description: "Ticker of the coin to pay with, e.g. btc." }
+      responses:
+        "200":
+          description: A payment address.
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+
+  /api/billing/bachs/portal:
+    post:
+      tags: [Billing]
+      summary: Open the Bachs billing portal
+      operationId: bachsPortal
+      responses:
+        "200":
+          description: A URL to the hosted billing portal.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { url: { type: string } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/webdav/overrides:
+    get:
+      tags: [WebDAV]
+      summary: List WebDAV naming overrides
+      operationId: webdavOverridesList
+      responses:
+        "200":
+          description: Your per-release folder-name overrides.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    job_id: { type: string }
+                    name: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/webdav/override:
+    post:
+      tags: [WebDAV]
+      summary: Set a WebDAV naming override
+      description: Changes how a release's folder is named in the WebDAV library.
+      operationId: webdavOverrideSet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [job_id, name]
+              properties:
+                job_id: { type: string }
+                name: { type: string }
+      responses:
+        "200": { description: Saved. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v2/auth/login:
+    post:
+      tags: [Download client]
+      summary: qBittorrent login
+      description: qBittorrent WebUI auth. Send your Torrin API key as the username or password. Returns the text "Ok." and a session cookie, matching qBittorrent so Sonarr/Radarr connect unchanged. See the Download client guide.
+      operationId: qbitLogin
+      security: []
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                username: { type: string, description: Your Torrin API key. }
+                password: { type: string, description: Your Torrin API key (used if both are set). }
+      responses:
+        "200": { description: Authenticated; body is the text "Ok.". }
+        "403": { description: Invalid key. }
+
+  /api/v2/torrents/add:
+    post:
+      tags: [Download client]
+      summary: qBittorrent add torrent
+      description: Adds a magnet (urls field) or an uploaded .torrent (torrents field), optionally under a category. Torrin ingests it through its normal pipeline.
+      operationId: qbitAdd
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                urls: { type: string, description: Newline-separated magnet links. }
+                torrents: { type: string, format: binary }
+                category: { type: string }
+      responses:
+        "200": { description: Accepted; body is "Ok.". }
+
+  /api/v2/torrents/info:
+    get:
+      tags: [Download client]
+      summary: qBittorrent list torrents
+      description: Returns your jobs in qBittorrent's torrent-list shape so the *arr app can track progress and detect completion.
+      operationId: qbitInfo
+      parameters:
+        - { name: category, in: query, schema: { type: string } }
+        - { name: hashes, in: query, schema: { type: string }, description: "Filter to specific hashes, pipe-separated." }
+      responses:
+        "200":
+          description: Torrents in qBittorrent format.
+          content:
+            application/json:
+              schema: { type: array, items: { type: object, additionalProperties: true } }
+
+  /api/v2/torrents/delete:
+    post:
+      tags: [Download client]
+      summary: qBittorrent delete torrent
+      operationId: qbitDelete
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                hashes: { type: string, description: 'Pipe-separated hashes, or "all".' }
+                deleteFiles: { type: boolean }
+      responses:
+        "200": { description: Deleted; body is "Ok.". }
+
+  /api:
+    get:
+      tags: [Download client]
+      summary: SABnzbd API
+      description: SABnzbd-compatible endpoint (also served at /sabnzbd/api). The mode parameter selects the function. Authenticate with apikey set to your Torrin API key.
+      operationId: sabGet
+      security: []
+      parameters:
+        - name: mode
+          in: query
+          required: true
+          schema: { type: string, enum: [version, get_config, get_cats, fullstatus, addurl, queue, history] }
+        - { name: apikey, in: query, required: true, schema: { type: string }, description: Your Torrin API key. }
+        - { name: name, in: query, schema: { type: string }, description: "For mode=addurl, the NZB URL to fetch." }
+        - { name: cat, in: query, schema: { type: string } }
+        - { name: output, in: query, schema: { type: string, enum: [json, xml] } }
+      responses:
+        "200":
+          description: SABnzbd-shaped response for the requested mode.
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+    post:
+      tags: [Download client]
+      summary: SABnzbd API (file upload)
+      description: SABnzbd addfile. POST an .nzb as multipart field "name" with mode=addfile.
+      operationId: sabPost
+      security: []
+      parameters:
+        - { name: mode, in: query, required: true, schema: { type: string, enum: [addfile] } }
+        - { name: apikey, in: query, required: true, schema: { type: string } }
+        - { name: cat, in: query, schema: { type: string } }
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name: { type: string, format: binary, description: The .nzb file. }
+      responses:
+        "200":
+          description: Accepted; returns the nzo id(s).
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
 
 components:
   securitySchemes:

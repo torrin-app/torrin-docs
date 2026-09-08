@@ -1,0 +1,119 @@
+---
+title: "Sonarr / Radarr download client"
+description: "Use Torrin as a drop-in download client in an *arr stack."
+---
+
+Torrin can present itself as a **qBittorrent** or **SABnzbd** download client, so
+Sonarr, Radarr, and the rest of the *arr stack can hand releases straight to
+Torrin. Torrin does the downloading (debrid, Usenet, hosters), and the finished
+files show up on a path the *arr app imports from over [WebDAV](/self-hosting/webdav).
+
+No bridging middleware needed: point the *arr app at Torrin directly.
+
+## How it fits together
+
+<Steps>
+  <Step title="The *arr app adds a release to Torrin">
+    Sonarr/Radarr talks to Torrin's fake qBittorrent or SABnzbd API and sends it
+    a magnet or NZB, exactly as it would to a real download client.
+  </Step>
+  <Step title="Torrin downloads it">
+    Torrin resolves and caches the release through its normal pipeline (debrid,
+    Usenet, hosters), subject to your plan limits.
+  </Step>
+  <Step title="The *arr app imports the finished files">
+    Torrin reports the completed download at a folder path. The *arr app reads
+    that path over a mounted WebDAV share and imports (hardlink/copy) the files.
+  </Step>
+</Steps>
+
+## 1. Mount Torrin's WebDAV on the *arr host
+
+The *arr app imports by **file path**, so it needs to *see* Torrin's finished
+files locally. Mount Torrin's [WebDAV](/self-hosting/webdav) share on the same
+host that runs Sonarr/Radarr, e.g. with rclone:
+
+```bash
+rclone mount torrin: /mnt/torrin \
+  --dir-cache-time 10s --vfs-cache-mode off --allow-other
+```
+
+where the `torrin:` remote is a `webdav` remote pointing at
+`http://<your-host>:9092` with your Torrin account credentials.
+
+<Note>
+The WebDAV folder names match the paths Torrin reports to the *arr app, so the
+import "just works" once the mount and the path mapping (step 3) line up.
+</Note>
+
+## 2. Add Torrin as a download client
+
+In **Sonarr/Radarr → Settings → Download Clients → Add**, pick one:
+
+<Tabs>
+  <Tab title="qBittorrent (torrents / debrid)">
+    Choose **qBittorrent** and set:
+
+    | Field | Value |
+    |---|---|
+    | Host | your Torrin host, e.g. `api.torrin.app` (or your instance) |
+    | Port | `443` (or your port) |
+    | Use SSL | on, if your instance is HTTPS |
+    | Username | your Torrin **API key** |
+    | Password | your Torrin **API key** |
+    | Category | e.g. `tv-sonarr` / `radarr` |
+
+    Torrin serves the qBittorrent WebUI API at `/api/v2/*` on your main API
+    host, so leave **URL Base** empty. Username and password both accept your
+    API key (the password is used if both are set).
+  </Tab>
+  <Tab title="SABnzbd (Usenet)">
+    Choose **SABnzbd** and set:
+
+    | Field | Value |
+    |---|---|
+    | Host | your Torrin host, e.g. `api.torrin.app` |
+    | Port | `443` (or your port) |
+    | Use SSL | on, if your instance is HTTPS |
+    | API Key | your Torrin **API key** |
+    | URL Base | leave empty (or `/sabnzbd`) |
+    | Category | e.g. `tv` / `movies` |
+
+    Torrin answers the SABnzbd API at `/api` and `/sabnzbd/api`.
+  </Tab>
+</Tabs>
+
+Hit **Test**; it should go green. Categories round-trip, so a Sonarr and a
+Radarr instance pointed at the same Torrin stay separated.
+
+## 3. Map the download path
+
+The *arr app sees the download at Torrin's reported save path (default
+`/downloads`), but the files actually live on your **WebDAV mount**. Bridge the
+two with a **Remote Path Mapping**:
+
+**Settings → Download Clients → Remote Path Mappings → Add**
+
+| Field | Value |
+|---|---|
+| Host | the same host you set on the download client |
+| Remote Path | `/downloads/` |
+| Local Path | `/mnt/torrin/` (your WebDAV mount) |
+
+<Note>
+Torrin's reported save path is set by the `ARR_SAVE_PATH` env on the `api`
+service (default `/downloads`). If you change it, change the Remote Path here to
+match.
+</Note>
+
+## That's it
+
+Search in Sonarr/Radarr as usual. When it grabs a release, Torrin ingests it,
+and once it's cached the *arr app imports it straight from the WebDAV mount.
+After that it streams from Torrin like anything else.
+
+<Warning>
+Grabs count against your plan's limits (concurrent jobs, monthly ingest, cold
+pulls) just like any other Torrin download. A busy *arr library can burn through
+those quickly.
+</Warning>

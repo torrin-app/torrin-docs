@@ -35,6 +35,7 @@
             "pages": [
               "self-hosting/stremio",
               "self-hosting/webdav",
+              "self-hosting/download-clients",
               "self-hosting/byos"
             ]
           },
@@ -73,7 +74,24 @@
               "GET /api/history",
               "GET /api/referral",
               "GET /api/stats",
-              "GET /api/wrapped"
+              "GET /api/wrapped",
+              "GET /api/usage/ingest"
+            ]
+          },
+          {
+            "group": "Auth & keys",
+            "pages": [
+              "POST /api/auth/login",
+              "POST /api/auth/login/key",
+              "POST /api/auth/login/verify",
+              "POST /api/auth/password",
+              "POST /api/auth/2fa/enroll",
+              "POST /api/auth/2fa/confirm",
+              "POST /api/auth/2fa/verify",
+              "POST /api/auth/2fa/disable",
+              "GET /api/keys",
+              "POST /api/keys",
+              "DELETE /api/keys/{id}"
             ]
           },
           {
@@ -147,6 +165,13 @@
             ]
           },
           {
+            "group": "WebDAV",
+            "pages": [
+              "GET /api/webdav/overrides",
+              "POST /api/webdav/override"
+            ]
+          },
+          {
             "group": "Usenet",
             "pages": [
               "api-reference/usenet",
@@ -154,6 +179,13 @@
               "POST /api/usenet/credentials",
               "DELETE /api/usenet/credentials",
               "POST /api/usenet/test",
+              "GET /api/usenet/cached",
+              "GET /api/usenet/providers",
+              "POST /api/usenet/providers",
+              "POST /api/usenet/providers/test",
+              "PUT /api/usenet/providers/{id}",
+              "DELETE /api/usenet/providers/{id}",
+              "POST /api/usenet/providers/{id}/toggle",
               "GET /api/usenet/indexer",
               "POST /api/usenet/indexer",
               "DELETE /api/usenet/indexer",
@@ -201,8 +233,19 @@
             "group": "Billing",
             "pages": [
               "POST /api/billing/crypto/checkout",
+              "GET /api/billing/crypto/invoice/{id}",
+              "POST /api/billing/crypto/invoice/{id}/address",
               "POST /api/billing/bachs/checkout",
+              "POST /api/billing/bachs/portal",
               "POST /api/redeem"
+            ]
+          },
+          {
+            "group": "Wallet",
+            "pages": [
+              "GET /api/wallet",
+              "POST /api/wallet/topup",
+              "POST /api/wallet/buy-plan"
             ]
           },
           {
@@ -227,17 +270,36 @@
               "POST /v0/store/magnets",
               "GET /v0/store/magnets/{id}",
               "DELETE /v0/store/magnets/{id}",
-              "POST /v0/store/link/generate"
+              "POST /v0/store/link/generate",
+              "GET /v0/store/newz/check",
+              "GET /v0/store/newz",
+              "POST /v0/store/newz",
+              "GET /v0/store/newz/{id}",
+              "DELETE /v0/store/newz/{id}",
+              "POST /v0/store/newz/link/generate"
+            ]
+          },
+          {
+            "group": "Download client",
+            "pages": [
+              "POST /api/v2/auth/login",
+              "POST /api/v2/torrents/add",
+              "GET /api/v2/torrents/info",
+              "POST /api/v2/torrents/delete",
+              "GET /api",
+              "POST /api"
             ]
           },
           {
             "group": "Public",
             "pages": [
               "POST /api/auth/register",
+              "GET /api/config",
               "GET /api/plans",
               "GET /api/hosters",
               "GET /api/sites",
-              "GET /api/stats/public"
+              "GET /api/stats/public",
+              "GET /api/wrapped/platform"
             ]
           }
         ]
