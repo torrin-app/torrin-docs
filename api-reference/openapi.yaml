@@ -1501,6 +1501,8 @@ paths:
                     label: { type: string }
                     url: { type: string }
                     enabled: { type: boolean }
+                    search_user_agent: { type: string }
+                    grab_user_agent: { type: string }
         "401": { $ref: "#/components/responses/Unauthorized" }
     post:
       tags: [Usenet]
@@ -1518,6 +1520,8 @@ paths:
                 label: { type: string }
                 url: { type: string, description: Newznab base URL. }
                 api_key: { type: string }
+                search_user_agent: { type: string, description: "User-Agent for this indexer's searches (blank = default)." }
+                grab_user_agent: { type: string, description: "User-Agent for this indexer's NZB grabs (blank = default)." }
       responses:
         "201":
           description: The created indexer (api key omitted).
@@ -1551,6 +1555,8 @@ paths:
               properties:
                 url: { type: string }
                 api_key: { type: string }
+                search_user_agent: { type: string }
+                grab_user_agent: { type: string }
       responses:
         "200":
           description: The indexer responded.
@@ -1579,6 +1585,8 @@ paths:
                 label: { type: string }
                 url: { type: string }
                 api_key: { type: string, description: Leave empty to keep the existing key. }
+                search_user_agent: { type: string, description: "User-Agent for this indexer's searches (blank = default)." }
+                grab_user_agent: { type: string, description: "User-Agent for this indexer's NZB grabs (blank = default)." }
       responses:
         "200": { $ref: "#/components/responses/StatusOk" }
         "400": { $ref: "#/components/responses/BadRequest" }
