@@ -583,6 +583,9 @@ paths:
               properties:
                 id: { type: string }
                 title: { type: string }
+                source: { type: string, description: "The indexer id from the search result." }
+                nzb_url: { type: string }
+                category: { type: string, description: "Newznab category; selects the grab User-Agent (TV = Sonarr, movies = Radarr)." }
       responses:
         "202":
           description: Accepted, downloading.

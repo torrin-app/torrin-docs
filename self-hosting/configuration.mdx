@@ -53,7 +53,8 @@ for the instant "is it cached" probe and can be left empty.
 | `USENET_MAXCONNS` | Max connections (default 20). |
 | `USENET_INDEXER_URL` / `USENET_INDEXER_KEY` | A Newznab indexer, as a fallback source. |
 | `INDEXER_USER_AGENT` | Default User-Agent for indexer searches (default `Prowlarr/1.30.2`). Users can override per BYOK indexer. |
-| `INDEXER_GRAB_USER_AGENT` | Default User-Agent for NZB grabs (default `SABnzbd/5.0.4`). Some indexers block unknown agents. |
+| `INDEXER_GRAB_USER_AGENT` | Fallback User-Agent for NZB grabs (default `SABnzbd/5.0.4`). Some indexers block unknown agents. |
+| `SONARR_USER_AGENT` / `RADARR_USER_AGENT` | Grab User-Agent by category when the indexer's grab UA is blank: TV uses Sonarr, movies use Radarr (defaults `Sonarr/4.0.15.2941` / `Radarr/5.26.2.10099`). |
 
 ## BYOS OAuth (optional)
 
