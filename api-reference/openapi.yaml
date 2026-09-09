@@ -593,6 +593,49 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Job" }
 
+  /newznab/api:
+    get:
+      tags: [Search & availability]
+      summary: Newznab indexer
+      description: >
+        Exposes Torrin's Usenet search as a Newznab indexer for Prowlarr, NZBHydra2,
+        Jackett, and the *arr apps. Add as a "Generic Newznab" indexer with base URL
+        `/newznab` and your Torrin API key. Returns a Newznab RSS/XML feed (or caps XML).
+      operationId: newznab
+      parameters:
+        - { name: t, in: query, required: true, description: "Function: caps, search, tvsearch, or movie.", schema: { type: string, enum: [caps, search, tvsearch, movie] } }
+        - { name: apikey, in: query, description: "Your Torrin API key (required for search; not needed for caps).", schema: { type: string } }
+        - { name: q, in: query, description: "Text query (search).", schema: { type: string } }
+        - { name: imdbid, in: query, description: "IMDb id, digits only (tvsearch/movie).", schema: { type: string } }
+        - { name: season, in: query, schema: { type: integer } }
+        - { name: ep, in: query, schema: { type: integer } }
+        - { name: cat, in: query, description: "Category filter (2000 movies, 5000 TV).", schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer } }
+        - { name: offset, in: query, schema: { type: integer } }
+      responses:
+        "200":
+          description: Newznab RSS/XML feed, or capabilities XML for t=caps.
+          content:
+            application/rss+xml:
+              schema: { type: string }
+
+  /newznab/getnzb:
+    get:
+      tags: [Search & availability]
+      summary: Newznab NZB download
+      description: Resolves a search result to its .nzb file (this is the download link inside the feed).
+      operationId: newznabGetNZB
+      parameters:
+        - { name: id, in: query, required: true, description: "Result id from the feed.", schema: { type: string } }
+        - { name: s, in: query, description: "Indexer source id from the result.", schema: { type: string } }
+        - { name: apikey, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: The NZB file.
+          content:
+            application/x-nzb:
+              schema: { type: string, format: binary }
+
   # ---------------- Debrid keys (BYOK) ----------------
   /api/rd/credentials:
     get: { tags: [Debrid keys], summary: Get RealDebrid key status, operationId: getRdCreds, responses: { "200": { $ref: "#/components/responses/CredStatus" } } }

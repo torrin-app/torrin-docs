@@ -36,6 +36,7 @@
               "self-hosting/stremio",
               "self-hosting/webdav",
               "self-hosting/download-clients",
+              "self-hosting/search-indexer",
               "self-hosting/byos"
             ]
           },
@@ -124,6 +125,8 @@
               "POST /api/scrape",
               "GET /api/usenet/search",
               "POST /api/usenet/grab",
+              "GET /newznab/api",
+              "GET /newznab/getnzb",
               "GET /api/{provider}/library",
               "GET /api/hdencode/search",
               "GET /api/scenerls/search"

@@ -1,0 +1,75 @@
+---
+title: "Torrin as a search indexer (Newznab)"
+description: "Use Torrin's built-in usenet search as a Newznab indexer in Prowlarr, NZBHydra2, Jackett, and the *arr stack."
+---
+
+Torrin can present its **usenet search** as a **Newznab** indexer, so Prowlarr,
+NZBHydra2, Jackett, AIOStreams, and the *arr apps can search Torrin the same way
+they'd search any indexer. It's the companion to the
+[download client](/self-hosting/download-clients) integration: use both together
+and an *arr app can **search *and* grab** entirely through Torrin.
+
+<Note>
+This exposes Torrin's **usenet** search. Torrent (Torznab) search isn't available yet.
+</Note>
+
+## What you get
+
+- A standard **Newznab** endpoint backed by Torrin's usenet search — your own
+  indexers (BYOK) and the built-in indexer both flow through it.
+- Works anywhere "Generic Newznab" is supported (Prowlarr, NZBHydra2, Jackett,
+  the *arr apps, AIOStreams).
+
+## Requirements
+
+- A plan with usenet search, and at least one indexer available to your account
+  (a BYOK Newznab indexer or the built-in one enabled) — the same gate as
+  searching inside Torrin.
+- Your Torrin **API key**.
+
+## Add Torrin in Prowlarr
+
+**Settings → Indexers → Add Indexer → Generic Newznab**, then set:
+
+| Field | Value |
+|---|---|
+| URL | `https://<your-torrin-host>/newznab` (e.g. `https://api.torrin.app/newznab`) |
+| API Path | `/api` (the default) |
+| API Key | your Torrin **API key** |
+| Categories | Movies (2000) and/or TV (5000) |
+
+Hit **Test** — it should go green. The same URL + key work in **NZBHydra2** (add a
+"Newznab" indexer), **Jackett**, or directly in any *arr app's indexer settings.
+
+## How it works
+
+<Steps>
+  <Step title="The app searches Torrin">
+    Prowlarr/*arr calls `/newznab/api?t=search|tvsearch|movie` with your API key.
+    Supported params: `q`, `imdbid`, `season`, `ep`.
+  </Step>
+  <Step title="Torrin runs its usenet search">
+    Torrin searches your configured indexers (BYOK + built-in) and returns a
+    standard Newznab RSS feed of results.
+  </Step>
+  <Step title="The app grabs a result">
+    On grab, the download link resolves to the real `.nzb` through Torrin, which
+    the app hands to its download client — so it works with any client, including
+    [Torrin itself](/self-hosting/download-clients).
+  </Step>
+</Steps>
+
+## Endpoints
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /newznab/api?t=caps` | Capabilities (no key required) |
+| `GET /newznab/api?t=search&q=&apikey=` | Text search |
+| `GET /newznab/api?t=tvsearch&imdbid=&season=&ep=&apikey=` | TV search |
+| `GET /newznab/api?t=movie&imdbid=&apikey=` | Movie search |
+| `GET /newznab/getnzb?id=&apikey=` | NZB download passthrough |
+
+<Tip>
+Pair this with the [Sonarr/Radarr download client](/self-hosting/download-clients)
+to search **and** download through Torrin end-to-end.
+</Tip>
